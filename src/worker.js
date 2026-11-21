@@ -12,7 +12,7 @@ const ALARM_MS = 30 * 1000; // vekker objektet jevnlig så det holder seg i live
 const STALE_MS = 90 * 1000; // ingen data på så lenge = koble til på nytt
 // Øk VERSION ved endringer i AisHub. En kjørende, eldre instans starter seg da på nytt
 // (Cloudflare bytter ikke alltid kode i et objekt som får jevnlige forespørsler).
-const VERSION = 4;
+const VERSION = 5;
 const HUB_NAME = "norge-eu-2";
 const TRACK_MS = 6 * 60 * 60 * 1000; // husk rute 6 timer bakover
 const TRACK_MAX = 400;
@@ -109,6 +109,9 @@ export class AisHub extends DurableObject {
 
   ensureConnected() {
     if (this.socket) return;
+    // Egen tilkobling har feilet fra der objektet står; prøv sjelden for ikke å mase på Kystverket.
+    if (this.stats.lastError && Date.now() - (this.lastAttempt || 0) < 15 * 60 * 1000) return;
+    this.lastAttempt = Date.now();
     const socket = connect({ hostname: this.env.AIS_HOST, port: Number(this.env.AIS_PORT) });
     this.socket = socket;
     this.stats.reconnects++;
@@ -171,6 +174,11 @@ let relayError = null;
 let relaying = null;
 
 async function relayOnce(env, hub) {
+  try { await relayInner(env, hub); }
+  catch (e) { relayError = String((e && e.message) || e); }
+}
+
+async function relayInner(env, hub) {
   const sock = connect({ hostname: env.AIS_HOST, port: Number(env.AIS_PORT) });
   const reader = sock.readable.getReader();
   const parser = new AisParser();
