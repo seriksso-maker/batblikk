@@ -91,6 +91,7 @@ function decodeBits(bits) {
       return {
         type,
         mmsi,
+        imo: uint(bits, 40, 30) || null,
         callsign: text(bits, 70, 42),
         name: text(bits, 112, 120),
         shipType: uint(bits, 232, 8),

@@ -10,7 +10,7 @@ import { AisParser } from "./ais.js";
 const MAX_AGE_MS = 30 * 60 * 1000; // vis båter sett siste 30 min
 const ALARM_MS = 30 * 1000; // vekker objektet jevnlig så det holder seg i live
 const STALE_MS = 90 * 1000; // ingen data på så lenge = koble til på nytt
-const STATIC_KEYS = ["name", "callsign", "shipType", "destination"];
+const STATIC_KEYS = ["name", "callsign", "shipType", "destination", "imo"];
 
 export class AisHub extends DurableObject {
   constructor(ctx, env) {
@@ -24,6 +24,7 @@ export class AisHub extends DurableObject {
       const sql = ctx.storage.sql;
       sql.exec(`CREATE TABLE IF NOT EXISTS ship_static (
         mmsi INTEGER PRIMARY KEY, name TEXT, callsign TEXT, shipType INTEGER, destination TEXT)`);
+      try { sql.exec("ALTER TABLE ship_static ADD COLUMN imo INTEGER"); } catch {} // finnes allerede
       for (const row of sql.exec("SELECT * FROM ship_static")) {
         const s = { mmsi: row.mmsi };
         for (const k of STATIC_KEYS) if (row[k] !== null) s[k] = row[k];
@@ -74,10 +75,10 @@ export class AisHub extends DurableObject {
       const s = this.ships.get(mmsi);
       if (!s) continue;
       sql.exec(
-        `INSERT INTO ship_static (mmsi, name, callsign, shipType, destination) VALUES (?, ?, ?, ?, ?)
+        `INSERT INTO ship_static (mmsi, name, callsign, shipType, destination, imo) VALUES (?, ?, ?, ?, ?, ?)
          ON CONFLICT(mmsi) DO UPDATE SET name=excluded.name, callsign=excluded.callsign,
-           shipType=excluded.shipType, destination=excluded.destination`,
-        mmsi, s.name ?? null, s.callsign ?? null, s.shipType ?? null, s.destination ?? null);
+           shipType=excluded.shipType, destination=excluded.destination, imo=excluded.imo`,
+        mmsi, s.name ?? null, s.callsign ?? null, s.shipType ?? null, s.destination ?? null, s.imo ?? null);
     }
     this.stats.saved += this.dirty.size;
     this.dirty.clear();
