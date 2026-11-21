@@ -20,7 +20,7 @@ export class AisHub extends DurableObject {
     this.ships = new Map();
     this.tracks = new Map(); // mmsi -> [[lat, lon, tid], ...] siste timer (bare i minnet)
     this.dirty = new Set(); // mmsi med nye navn/typer som ikke er lagret
-    this.stats = { source: "kystverket", connected: false, messages: 0, since: Date.now(), lastData: 0, lastError: null, reconnects: 0, alarms: 0, saved: 0 };
+    this.stats = { version: 3, source: "kystverket", connected: false, messages: 0, since: Date.now(), lastData: 0, lastError: null, reconnects: 0, alarms: 0, saved: 0 };
     this.socket = null;
 
     ctx.blockConcurrencyWhile(async () => {
