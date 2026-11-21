@@ -52,6 +52,19 @@ function heading(raw) {
   return raw === null || raw === 511 ? null : raw;
 }
 
+
+// Mål fra referansepunktet: til baug, akter, babord, styrbord -> lengde og bredde i meter
+function dims(bits, at) {
+  const a = uint(bits, at, 9), b = uint(bits, at + 9, 9), c = uint(bits, at + 18, 6), d = uint(bits, at + 24, 6);
+  const len = (a || 0) + (b || 0), beam = (c || 0) + (d || 0);
+  return { len: len > 0 && len < 511 ? len : null, beam: beam > 0 && beam < 126 ? beam : null };
+}
+function eta(mo, d, h, mi) {
+  if (!mo || mo > 12 || !d) return null;
+  const p = (n) => String(n).padStart(2, "0");
+  return `${p(d)}.${p(mo)}` + (h != null && h < 24 ? ` ${p(h)}:${p(mi != null && mi < 60 ? mi : 0)}` : "");
+}
+
 function decodeBits(bits) {
   const type = uint(bits, 0, 6);
   const mmsi = uint(bits, 8, 30);
@@ -84,6 +97,7 @@ function decodeBits(bits) {
       if (type === 19) {
         m.name = text(bits, 143, 120);
         m.shipType = uint(bits, 263, 8);
+        Object.assign(m, dims(bits, 271));
       }
       return m;
     }
@@ -96,6 +110,9 @@ function decodeBits(bits) {
         name: text(bits, 112, 120),
         shipType: uint(bits, 232, 8),
         destination: text(bits, 302, 120),
+        ...dims(bits, 240),
+        eta: eta(uint(bits, 274, 4), uint(bits, 278, 5), uint(bits, 283, 5), uint(bits, 288, 6)),
+        draught: uint(bits, 294, 8) ? uint(bits, 294, 8) / 10 : null,
       };
     case 24: {
       const part = uint(bits, 38, 2);
@@ -106,6 +123,7 @@ function decodeBits(bits) {
           mmsi,
           shipType: uint(bits, 40, 8),
           callsign: text(bits, 90, 42),
+          ...dims(bits, 132),
         };
       return null;
     }

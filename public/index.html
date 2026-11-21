@@ -187,6 +187,36 @@
     #radarHud{right:calc(var(--rw) + 14px);top:90px}
     .leaflet-bottom.leaflet-right .leaflet-control-zoom{margin-bottom:24px}
   }
+
+  /* ---- Fartøykort ---- */
+  aside.vc{width:350px;border-radius:14px;background:#0a1420;box-shadow:0 10px 30px rgba(0,0,0,.45)}
+  .vc .vh{display:flex;align-items:center;gap:10px;padding:12px 48px 10px 14px}
+  .vc .fl{font-size:30px;line-height:1;flex:none}
+  .vc .nm2{font:700 24px/1.05 var(--cond);letter-spacing:.02em}
+  .vc .sub2{display:flex;align-items:center;gap:6px;color:var(--mute);font-size:13px;margin-top:2px}
+  .vc .chip{display:inline-flex;align-items:center;gap:5px;padding:1px 8px 1px 5px;border-radius:20px;font-size:12px;font-weight:600}
+  .vc .pic{height:160px}
+  .vc .voy{display:grid;grid-template-columns:1fr auto;gap:2px 12px;padding:12px 14px;border-bottom:1px solid var(--line);background:linear-gradient(180deg,#0d1b2b,#0a1420)}
+  .vc .voy .k,.vc .st3 .k,.vc .dm .k{color:var(--mute);font-size:10.5px;text-transform:uppercase;letter-spacing:.09em}
+  .vc .voy .dst{font:700 20px var(--cond);letter-spacing:.03em}
+  .vc .voy .eta{font:600 16px var(--mono);text-align:right}
+  .vc .stp{grid-column:1/-1;display:inline-flex;margin-top:6px;justify-self:start;padding:2px 9px;border-radius:12px;font-size:12px;font-weight:600}
+  .vc .st3{display:grid;grid-template-columns:1fr 1fr;border-bottom:1px solid var(--line)}
+  .vc .st3>div{padding:10px 14px;display:flex;align-items:center;gap:10px}
+  .vc .st3>div+div{border-left:1px solid var(--line)}
+  .vc .st3 .v{font:700 24px var(--cond);font-variant-numeric:tabular-nums}
+  .vc .st3 .v small{font:500 13px var(--ui);color:var(--mute);margin-left:3px}
+  .vc .dm{padding:10px 14px;border-bottom:1px solid var(--line)}
+  .vc .dm .row{display:flex;gap:18px;margin-top:4px}
+  .vc .dm .v{font:700 20px var(--cond)} .vc .dm .v small{font:500 12px var(--ui);color:var(--mute);margin-left:2px}
+  .vc .dm svg{display:block;margin-top:8px;width:100%;height:34px}
+  .vc .ids{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--line)}
+  .vc .ids div{background:#0a1420;padding:7px 14px}
+  .vc .ids .k{display:block;color:var(--mute);font-size:10.5px;text-transform:uppercase;letter-spacing:.08em}
+  .vc .ids .v{font:500 13px var(--mono)}
+  .vc .ids .w{grid-column:1/-1}
+  .vc .acts a{flex:1;display:flex;align-items:center;justify-content:center;background:#0a1420;color:var(--cyan);font-weight:600;text-decoration:none;font-size:13px}
+  @media (max-width:640px){ aside.vc{width:auto} .vc .pic{height:150px} }
 </style>
 </head>
 <body>
@@ -383,6 +413,8 @@ let destOnly = store.get("batblikk.dest") === "1";
 const flags = new Set((() => { try { return JSON.parse(store.get("batblikk.flags") || "[]"); } catch { return []; } })());
 // Flagg fra MMSI (de tre første sifrene, MID)
 const MID = {201:"Albania",203:"Østerrike",205:"Belgia",209:"Kypros",210:"Kypros",212:"Kypros",211:"Tyskland",218:"Tyskland",219:"Danmark",220:"Danmark",224:"Spania",225:"Spania",226:"Frankrike",227:"Frankrike",228:"Frankrike",229:"Malta",215:"Malta",248:"Malta",249:"Malta",256:"Malta",230:"Finland",231:"Færøyene",232:"Storbritannia",233:"Storbritannia",234:"Storbritannia",235:"Storbritannia",236:"Gibraltar",237:"Hellas",239:"Hellas",240:"Hellas",241:"Hellas",244:"Nederland",245:"Nederland",246:"Nederland",247:"Italia",250:"Irland",251:"Island",253:"Luxembourg",255:"Portugal (Madeira)",257:"Norge",258:"Norge",259:"Norge",261:"Polen",263:"Portugal",265:"Sverige",266:"Sverige",269:"Sveits",271:"Tyrkia",273:"Russland",275:"Latvia",276:"Estland",277:"Litauen",305:"Antigua og Barbuda",304:"Antigua og Barbuda",308:"Bahamas",309:"Bahamas",311:"Bahamas",314:"Barbados",316:"Canada",319:"Caymanøyene",338:"USA",366:"USA",367:"USA",368:"USA",369:"USA",370:"Panama",351:"Panama",352:"Panama",353:"Panama",354:"Panama",355:"Panama",356:"Panama",357:"Panama",371:"Panama",372:"Panama",373:"Panama",374:"Panama",375:"St. Vincent",376:"St. Vincent",377:"St. Vincent",412:"Kina",413:"Kina",414:"Kina",419:"India",431:"Japan",432:"Japan",440:"Sør-Korea",441:"Sør-Korea",477:"Hongkong",503:"Australia",512:"New Zealand",525:"Indonesia",533:"Malaysia",538:"Marshalløyene",548:"Filippinene",563:"Singapore",564:"Singapore",565:"Singapore",566:"Singapore",572:"Tuvalu",574:"Vietnam",620:"Komorene",636:"Liberia",637:"Liberia",667:"Sierra Leone",671:"Togo",710:"Brasil",725:"Chile"};
+const ISO = {"Albania":"AL","Østerrike":"AT","Belgia":"BE","Kypros":"CY","Tyskland":"DE","Danmark":"DK","Spania":"ES","Frankrike":"FR","Malta":"MT","Finland":"FI","Færøyene":"FO","Storbritannia":"GB","Gibraltar":"GI","Hellas":"GR","Nederland":"NL","Italia":"IT","Irland":"IE","Island":"IS","Luxembourg":"LU","Portugal (Madeira)":"PT","Norge":"NO","Polen":"PL","Portugal":"PT","Sverige":"SE","Sveits":"CH","Tyrkia":"TR","Russland":"RU","Latvia":"LV","Estland":"EE","Litauen":"LT","Antigua og Barbuda":"AG","Bahamas":"BS","Barbados":"BB","Canada":"CA","Caymanøyene":"KY","USA":"US","Panama":"PA","St. Vincent":"VC","Kina":"CN","India":"IN","Japan":"JP","Sør-Korea":"KR","Hongkong":"HK","Australia":"AU","New Zealand":"NZ","Indonesia":"ID","Malaysia":"MY","Marshalløyene":"MH","Filippinene":"PH","Singapore":"SG","Tuvalu":"TV","Vietnam":"VN","Komorene":"KM","Liberia":"LR","Sierra Leone":"SL","Togo":"TG","Brasil":"BR","Chile":"CL"};
+const flagEmoji = name => { const c = ISO[name]; return c ? String.fromCodePoint(...[...c].map(ch => 0x1F1E6 + ch.charCodeAt(0) - 65)) : "🏳️"; };
 const flagOf = mmsi => MID[String(mmsi).slice(0,3)] || null;
 const passes = s => (minSpeed <= 0 || (s.sog != null && s.sog >= minSpeed)) && (!destOnly || !!s.destination) && (!flags.size || flags.has(flagOf(s.mmsi) || "Ukjent"));
 const markers = new Map(); // mmsi -> { marker, key, ship }
@@ -511,29 +543,46 @@ function hidePanel() { if (selected == null) return; selected = null; $("panel")
 function showPanel() {
   const s = byMmsi.get(selected);
   if (!s) { $("panel").hidden = true; return; }
-  const c = catOf(s.shipType);
-  const on = tracking && tracking.mmsi === s.mmsi;
-  const cell = (k, v, w) => v == null || v === "" ? "" : `<div class="${w ? "w" : ""}"><span class="k">${k}</span><span class="v">${esc(v)}</span></div>`;
+  const c = catOf(s.shipType), on = tracking && tracking.mmsi === s.mmsi;
+  const flag = flagOf(s.mmsi), moving = isMoving(s);
+  const st = s.status != null ? STATUS[s.status] : moving ? "I fart" : null;
+  const stCol = s.status === 5 || s.status === 1 ? ["#3a2a0f","#ffb454"] : moving ? ["#0f3a2f","#4fd18b"] : ["#1a2633","#9aa8b5"];
+  const v = (x, unit) => x == null || x === "" ? "–" : `${x}<small>${unit || ""}</small>`;
+  const hdg = s.cog ?? s.heading;
+  const compass = `<svg width="38" height="38" viewBox="-20 -20 40 40"><circle r="18" fill="none" stroke="#24405c" stroke-width="1.5"/><text y="-11" text-anchor="middle" font-size="7" fill="#7b8fa3" font-family="IBM Plex Mono">N</text>${hdg != null ? `<g transform="rotate(${Math.round(hdg)})"><path d="M0,-14 L4,4 L0,1 L-4,4 Z" fill="#59d0ff"/></g>` : ""}</svg>`;
+  const speedo = `<svg width="38" height="38" viewBox="-20 -20 40 40"><path d="M-14,10 A17,17 0 1 1 14,10" fill="none" stroke="#24405c" stroke-width="3" stroke-linecap="round"/>${s.sog != null ? `<path d="M-14,10 A17,17 0 ${Math.min(s.sog,30)/30 > .62 ? 1 : 0} 1 ${(-Math.cos(Math.PI*(1.2*Math.min(s.sog,30)/30 - .1))*17).toFixed(1)},${(-Math.sin(Math.PI*(1.2*Math.min(s.sog,30)/30 - .1))*17).toFixed(1)}" fill="none" stroke="#4fd18b" stroke-width="3" stroke-linecap="round"/>` : ""}</svg>`;
+  // Silhuett i målestokk (lengde av 400 m, bredde forstørret)
+  const L = s.len ? Math.max(10, Math.min(296, s.len * 0.74)) : null, hb = Math.max(3, Math.min(13, (s.beam || 12) / 3));
+  const hull = L ? `<svg viewBox="0 0 300 34"><path d="M2,${17 - hb} H${(L * .88).toFixed(1)} Q${L.toFixed(1)},17 ${(L * .88).toFixed(1)},${17 + hb} H2 Z" fill="${c.color}" fill-opacity=".85" stroke="#0a1420"/><line x1="0" y1="33" x2="300" y2="33" stroke="#24405c" stroke-dasharray="3 4"/><text x="299" y="29" text-anchor="end" font-size="9" fill="#7b8fa3" font-family="IBM Plex Mono">skala 400 m</text></svg>` : "";
+  const cell = (k, val, w) => `<div class="${w ? "w" : ""}"><span class="k">${k}</span><span class="v">${esc(val ?? "–")}</span></div>`;
+  $("panel").className = "vc";
   $("panel").innerHTML = `
     <button type="button" class="x" data-act="close" aria-label="Lukk">✕</button>
+    <div class="vh"><span class="fl" title="${esc(flag || "Ukjent flagg")}">${flagEmoji(flag)}</span><div><div class="nm2">${esc(s.name || "Ukjent navn")}</div>
+      <div class="sub2"><span class="chip" style="background:${c.color}22;color:${c.color}">${shipSvg(c.id, c.color, 14, 0, false)}${esc(typeName(s.shipType))}</span>${esc(flag || "Ukjent flagg")}</div></div></div>
     ${photoHtml(s)}
-    <div class="hd"><div class="nm">${esc(s.name || "Ukjent navn")}</div><div class="ty">${shipSvg(c.id, c.color, 16, 0, false)}${esc(typeName(s.shipType))}</div></div>
-    <div class="grid">
-      ${cell("Fart", s.sog != null ? `${s.sog.toFixed(1)} kn` : "–")}
-      ${cell("Kurs", s.cog != null ? `${Math.round(s.cog)}°` : "–")}
-      ${cell("MMSI", s.mmsi)}
-      ${cell("Flagg", flagOf(s.mmsi) || "–")}
-      ${cell("Kallesignal", s.callsign || "–")}
-      ${s.imo ? cell("IMO", s.imo) : ""}
-      ${cell("Sist sett", ago(lastNow - s.seen), !!s.imo)}
-      ${cell("Destinasjon", s.destination, true)}
-      ${cell("Status", s.status != null ? STATUS[s.status] : null, true)}
+    <div class="voy">
+      <span class="k">Destinasjon</span><span class="k" style="text-align:right">Forventet ankomst</span>
+      <span class="dst">${esc(s.destination || "Ikke oppgitt")}</span><span class="eta">${esc(s.eta || "–")}</span>
+      ${st ? `<span class="stp" style="background:${stCol[0]};color:${stCol[1]}">● ${esc(st)}</span>` : ""}
+    </div>
+    <div class="st3">
+      <div>${speedo}<div><span class="k">Fart</span><div class="v">${s.sog != null ? v(s.sog.toFixed(1), "kn") : "–"}</div></div></div>
+      <div>${compass}<div><span class="k">Kurs</span><div class="v">${hdg != null ? v(Math.round(hdg), "°") : "–"}</div></div></div>
+    </div>
+    <div class="dm"><span class="k">Størrelse</span>
+      <div class="row"><div><div class="v">${v(s.len, "m")}</div><span class="k">Lengde</span></div><div><div class="v">${v(s.beam, "m")}</div><span class="k">Bredde</span></div><div><div class="v">${v(s.draught != null ? s.draught.toFixed(1) : null, "m")}</div><span class="k">Dypgang</span></div></div>
+      ${hull}
+    </div>
+    <div class="ids">
+      ${cell("MMSI", s.mmsi)}${cell("IMO", s.imo)}
+      ${cell("Kallesignal", s.callsign)}${cell("Sist sett", ago(lastNow - s.seen))}
       ${cell("Posisjon", `${s.lat.toFixed(4)}° N, ${s.lon.toFixed(4)}° Ø`, true)}
       ${cell("Kilde", s.src === "fi" ? "Digitraffic (Finland)" : s.src === "as" ? "aisstream.io" : "Kystverket", true)}
     </div>
     <div class="acts">
       <button type="button" data-act="track" class="${on ? "on" : ""}">${on ? "Slutt å spore" : "Spor ruten"}</button>
-      ${on ? `<button type="button" data-act="follow" class="f ${tracking.follow ? "on" : ""}">${tracking.follow ? "Følger båten" : "Følg båten"}</button>` : ""}
+      ${on ? `<button type="button" data-act="follow" class="f ${tracking.follow ? "on" : ""}">${tracking.follow ? "Følger" : "Følg båten"}</button>` : ""}
       <button type="button" data-act="zoom">Zoom inn</button>
     </div>`;
   $("panel").hidden = false;

@@ -12,11 +12,11 @@ const ALARM_MS = 30 * 1000; // vekker objektet jevnlig så det holder seg i live
 const STALE_MS = 90 * 1000; // ingen data på så lenge = koble til på nytt
 // Øk VERSION ved endringer i AisHub. En kjørende, eldre instans starter seg da på nytt
 // (Cloudflare bytter ikke alltid kode i et objekt som får jevnlige forespørsler).
-const VERSION = 5;
+const VERSION = 6;
 const HUB_NAME = "norge-eu-2";
 const TRACK_MS = 6 * 60 * 60 * 1000; // husk rute 6 timer bakover
 const TRACK_MAX = 400;
-const STATIC_KEYS = ["name", "callsign", "shipType", "destination", "imo"];
+const STATIC_KEYS = ["name", "callsign", "shipType", "destination", "imo", "len", "beam", "draught", "eta"];
 
 export class AisHub extends DurableObject {
   constructor(ctx, env) {
@@ -31,7 +31,9 @@ export class AisHub extends DurableObject {
       const sql = ctx.storage.sql;
       sql.exec(`CREATE TABLE IF NOT EXISTS ship_static (
         mmsi INTEGER PRIMARY KEY, name TEXT, callsign TEXT, shipType INTEGER, destination TEXT)`);
-      try { sql.exec("ALTER TABLE ship_static ADD COLUMN imo INTEGER"); } catch {} // finnes allerede
+      for (const col of ["imo INTEGER", "len INTEGER", "beam INTEGER", "draught REAL", "eta TEXT"]) {
+        try { sql.exec("ALTER TABLE ship_static ADD COLUMN " + col); } catch {} // finnes allerede
+      }
       for (const row of sql.exec("SELECT * FROM ship_static")) {
         const s = { mmsi: row.mmsi };
         for (const k of STATIC_KEYS) if (row[k] !== null) s[k] = row[k];
@@ -106,10 +108,12 @@ export class AisHub extends DurableObject {
       const s = this.ships.get(mmsi);
       if (!s) continue;
       sql.exec(
-        `INSERT INTO ship_static (mmsi, name, callsign, shipType, destination, imo) VALUES (?, ?, ?, ?, ?, ?)
+        `INSERT INTO ship_static (mmsi, name, callsign, shipType, destination, imo, len, beam, draught, eta) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
          ON CONFLICT(mmsi) DO UPDATE SET name=excluded.name, callsign=excluded.callsign,
-           shipType=excluded.shipType, destination=excluded.destination, imo=excluded.imo`,
-        mmsi, s.name ?? null, s.callsign ?? null, s.shipType ?? null, s.destination ?? null, s.imo ?? null);
+           shipType=excluded.shipType, destination=excluded.destination, imo=excluded.imo,
+           len=excluded.len, beam=excluded.beam, draught=excluded.draught, eta=excluded.eta`,
+        mmsi, s.name ?? null, s.callsign ?? null, s.shipType ?? null, s.destination ?? null, s.imo ?? null,
+        s.len ?? null, s.beam ?? null, s.draught ?? null, s.eta ?? null);
     }
     this.stats.saved += this.dirty.size;
     this.dirty.clear();
@@ -237,6 +241,12 @@ const DT_POS_EVERY_MS = 30 * 1000;
 const DT_META_EVERY_MS = 15 * 60 * 1000;
 let lastDtPos = 0, lastDtMeta = 0, dtBusyUntil = 0, dtError = null;
 
+function dtEta(e) {
+  if (!e) return null;
+  const mo = (e >> 16) & 15, d = (e >> 11) & 31, h = (e >> 6) & 31, mi = e & 63, p = (n) => String(n).padStart(2, "0");
+  return mo && mo <= 12 && d ? `${p(d)}.${p(mo)}` + (h < 24 ? ` ${p(h)}:${p(mi < 60 ? mi : 0)}` : "") : null;
+}
+
 async function digitrafficOnce(hub) {
   const now = Date.now();
   const msgs = [];
@@ -246,7 +256,9 @@ async function digitrafficOnce(hub) {
       const vessels = await fetch(DT + "vessels?from=" + (now - 24 * 3600 * 1000), { headers: DT_HEADERS }).then((r) => r.json());
       for (const v of vessels) {
         msgs.push({ mmsi: v.mmsi, name: v.name?.trim() || null, callsign: v.callSign || null, shipType: v.shipType ?? null,
-          destination: v.destination?.trim() || null, imo: v.imo || null, src: "fi" });
+          destination: v.destination?.trim() || null, imo: v.imo || null, src: "fi",
+          len: (v.referencePointA || 0) + (v.referencePointB || 0) || null, beam: (v.referencePointC || 0) + (v.referencePointD || 0) || null,
+          draught: v.draught ? v.draught / 10 : null, eta: dtEta(v.eta) });
       }
     }
     lastDtPos = now;
@@ -294,7 +306,11 @@ async function aisstreamOnce(env, hub) {
         const st = mm.ShipStaticData;
         if (st) {
           msgs.push({ mmsi: md.MMSI || st.UserID, name: st.Name?.trim() || null, callsign: st.CallSign?.trim() || null,
-            shipType: st.Type ?? null, destination: st.Destination?.trim() || null, imo: st.ImoNumber || null, src: "as" });
+            shipType: st.Type ?? null, destination: st.Destination?.trim() || null, imo: st.ImoNumber || null, src: "as",
+            len: st.Dimension ? (st.Dimension.A || 0) + (st.Dimension.B || 0) || null : null,
+            beam: st.Dimension ? (st.Dimension.C || 0) + (st.Dimension.D || 0) || null : null,
+            draught: st.MaximumStaticDraught || null,
+            eta: st.Eta && st.Eta.Month && st.Eta.Day ? `${String(st.Eta.Day).padStart(2, "0")}.${String(st.Eta.Month).padStart(2, "0")}` + (st.Eta.Hour < 24 ? ` ${String(st.Eta.Hour).padStart(2, "0")}:${String(st.Eta.Minute < 60 ? st.Eta.Minute : 0).padStart(2, "0")}` : "") : null });
         }
       } catch {}
     });
