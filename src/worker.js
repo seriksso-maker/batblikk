@@ -263,6 +263,54 @@ async function digitrafficOnce(hub) {
   if (msgs.length) await hub.fetch("https://hub/ingest", { method: "POST", body: JSON.stringify(msgs) });
 }
 
+// ---- Danmark og Sverige: aisstream.io (gratis konto, nøkkel lagres som hemmelighet AISSTREAM_KEY) ----
+// Uten nøkkel hoppes dette over. Workeren lytter noen sekunder per oppdatering.
+const AS_READ_MS = 4000;
+const AS_EVERY_MS = 12000;
+let lastAs = 0, asBusyUntil = 0, asError = null;
+const AS_BOXES = [[[53.5, 2.5], [59.5, 16.5]], [[55, 10.5], [66, 24.5]]]; // Danmark/Skagerrak/Kattegat, Sverige/Østersjøen
+
+async function aisstreamOnce(env, hub) {
+  const msgs = [];
+  let ws;
+  try {
+    const resp = await fetch("https://stream.aisstream.io/v0/stream", { headers: { Upgrade: "websocket" } });
+    ws = resp.webSocket;
+    if (!ws) { asError = "aisstream svarte " + resp.status; return; }
+    ws.accept();
+    ws.addEventListener("message", (ev) => {
+      try {
+        const d = JSON.parse(typeof ev.data === "string" ? ev.data : new TextDecoder().decode(ev.data));
+        if (d.error) { asError = String(d.error); return; }
+        const md = d.MetaData || {}, mm = d.Message || {};
+        const pr = mm.PositionReport || mm.StandardClassBPositionReport || mm.ExtendedClassBPositionReport;
+        if (pr) {
+          msgs.push({ mmsi: md.MMSI || pr.UserID, lat: pr.Latitude, lon: pr.Longitude,
+            sog: pr.Sog >= 102.3 ? null : pr.Sog, cog: pr.Cog >= 360 ? null : pr.Cog,
+            heading: pr.TrueHeading === 511 ? null : pr.TrueHeading ?? null,
+            status: pr.NavigationalStatus ?? null, src: "as",
+            ...(md.ShipName && md.ShipName.trim() ? { name: md.ShipName.trim() } : {}) });
+        }
+        const st = mm.ShipStaticData;
+        if (st) {
+          msgs.push({ mmsi: md.MMSI || st.UserID, name: st.Name?.trim() || null, callsign: st.CallSign?.trim() || null,
+            shipType: st.Type ?? null, destination: st.Destination?.trim() || null, imo: st.ImoNumber || null, src: "as" });
+        }
+      } catch {}
+    });
+    ws.send(JSON.stringify({ APIKey: env.AISSTREAM_KEY, BoundingBoxes: AS_BOXES,
+      FilterMessageTypes: ["PositionReport", "StandardClassBPositionReport", "ExtendedClassBPositionReport", "ShipStaticData"] }));
+    await new Promise((r) => setTimeout(r, AS_READ_MS));
+    if (msgs.length) asError = null; else if (!asError) asError = "ingen data fra aisstream på " + AS_READ_MS / 1000 + " s";
+  } catch (e) {
+    asError = String((e && e.message) || e);
+  } finally {
+    try { ws && ws.close(1000, "ferdig"); } catch {}
+  }
+  const valid = msgs.filter((m) => m.mmsi && (m.lat == null || (Math.abs(m.lat) <= 90 && Math.abs(m.lon) <= 180)));
+  if (valid.length) await hub.fetch("https://hub/ingest", { method: "POST", body: JSON.stringify(valid) });
+}
+
 export default {
   async fetch(request, env) {
     try {
@@ -300,13 +348,20 @@ async function handle(request, env) {
         relayBusyUntil = Date.now() + 15000;
         relayJob = relayOnce(env, hub).catch(() => {}).finally(() => (relayBusyUntil = 0));
       }
+      let asJob = null;
+      if (env.AISSTREAM_KEY && Date.now() - lastAs > AS_EVERY_MS && Date.now() > asBusyUntil) {
+        lastAs = Date.now();
+        asBusyUntil = Date.now() + 15000;
+        asJob = aisstreamOnce(env, hub).catch(() => {}).finally(() => (asBusyUntil = 0));
+      }
       let out = data;
-      if (dtJob || relayJob) {
-        await Promise.all([dtJob, relayJob]);
+      if (dtJob || relayJob || asJob) {
+        await Promise.all([dtJob, relayJob, asJob]);
         out = await (await hub.fetch(request)).json();
       }
       out.stats.relayError = relayError;
       out.stats.finlandError = dtError;
+      out.stats.aisstream = env.AISSTREAM_KEY ? (asError || "ok") : "ingen nøkkel";
       return Response.json(out, { headers: { "Cache-Control": "no-store" } });
     }
     return env.ASSETS.fetch(request);

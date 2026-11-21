@@ -147,7 +147,7 @@
   <label class="tog">Ruten følger valgt båt<input type="checkbox" id="followChk"></label>
   <div class="row2"><button type="button" id="locBtn">Gå til min posisjon</button></div>
   <label class="h">Kilder</label>
-  <p class="note">AIS-data fra Kystverket (NLOD) og Digitraffic/Fintraffic, Finland (CC BY 4.0). Bilder fra Wikimedia Commons. Kart fra OpenStreetMap, Kartverket, Esri og OpenSeaMap.</p>
+  <p class="note">AIS-data fra Kystverket (NLOD), Digitraffic/Fintraffic, Finland (CC BY 4.0) og aisstream.io (Danmark og Sverige). Bilder fra Wikimedia Commons. Kart fra OpenStreetMap, Kartverket, Esri og OpenSeaMap.</p>
   <p class="note" id="srcStat"></p>
 </section>
 
@@ -205,7 +205,7 @@ const REGIONS = [
   ["Bergen", [[60.15,4.7],[60.6,5.6]]], ["Stavanger", [[58.75,5.3],[59.2,6.1]]],
   ["Ålesund", [[62.3,5.6],[62.65,6.6]]], ["Trondheim", [[63.3,9.6],[63.75,10.9]]],
   ["Lofoten", [[67.8,12.5],[68.6,15.8]]], ["Tromsø", [[69.4,18.3],[69.9,19.6]]],
-  ["Skagerrak", [[57,7.5],[59.3,11.5]]], ["Østersjøen", [[54,13],[66,30]]],
+  ["Skagerrak", [[57,7.5],[59.3,11.5]]], ["Danmark", [[54.5,7.8],[57.8,13]]], ["Østersjøen", [[54,13],[66,30]]],
 ];
 let baseId = BASES[store.get("batblikk.base2")] ? store.get("batblikk.base2") : "dark";
 let ovOn = new Set((() => { try { return JSON.parse(store.get("batblikk.ov2") || "[]"); } catch { return []; } })().filter(k => OVERLAYS[k]));
@@ -386,7 +386,7 @@ function showPanel() {
       ${cell("Destinasjon", s.destination, true)}
       ${cell("Status", s.status != null ? STATUS[s.status] : null, true)}
       ${cell("Posisjon", `${s.lat.toFixed(4)}° N, ${s.lon.toFixed(4)}° Ø`, true)}
-      ${cell("Kilde", s.src === "fi" ? "Digitraffic (Finland)" : "Kystverket", true)}
+      ${cell("Kilde", s.src === "fi" ? "Digitraffic (Finland)" : s.src === "as" ? "aisstream.io" : "Kystverket", true)}
     </div>
     <div class="acts">
       <button type="button" data-act="track" class="${on ? "on" : ""}">${on ? "Slutt å spore" : "Spor ruten"}</button>
@@ -478,8 +478,8 @@ async function poll() {
     const on = st.connected || age < 60000;
     $("dot").className = on ? "ok" : !fresh && !st.relayError ? "load" : "err";
     $("stxt").textContent = `${shown} båter` + (on ? "" : !fresh && !st.relayError ? " · henter data …" : " · venter på Kystverket");
-    const nNo = ships.filter(s => s.src !== "fi").length;
-    $("srcStat").textContent = `Akkurat nå: ${nNo} båter fra Kystverket og ${ships.length - nNo} fra Finland.`;
+    const nFi = ships.filter(s => s.src === "fi").length, nAs = ships.filter(s => s.src === "as").length;
+    $("srcStat").textContent = `Akkurat nå: ${ships.length - nFi - nAs} båter fra Kystverket, ${nFi} fra Finland` + (nAs ? ` og ${nAs} fra aisstream.io (Danmark/Sverige).` : ".");
     fails = 0;
   } catch {
     // Ett enkelt bom (f.eks. mens en ny versjon rulles ut) skal ikke gi rødt.
