@@ -360,16 +360,16 @@ async function webcams(url, env, ctx) {
   if (hit) return hit;
   const api = "https://api.windy.com/webcams/api/v3/webcams?" + new URLSearchParams({
     nearby: `${lat.toFixed(2)},${lon.toFixed(2)},${Math.round(r / 25) * 25 || 25}`,
-    categories: "harbor,coast,beach,water,lake,bay",
+    categories: "port,coast,beach,lake",
     include: "images,location,player,urls,categories",
-    limit: "50", lang: "no",
+    limit: "50", lang: "nb",
   });
   const res = await fetch(api, { headers: { "x-windy-api-key": env.WINDY_KEY } });
   if (!res.ok) return Response.json({ error: "Windy svarte " + res.status, detail: (await res.text()).slice(0, 300), webcams: [] });
   const j = await res.json();
   const list = (j.webcams || []).map((w) => ({
     id: w.webcamId, title: w.title, lat: w.location?.latitude, lon: w.location?.longitude, city: w.location?.city,
-    harbor: (w.categories || []).some((c) => c.id === "harbor"),
+    harbor: (w.categories || []).some((c) => c.id === "port"),
     img: w.images?.current?.preview || w.images?.current?.thumbnail || null,
     day: w.player?.day || null, live: w.player?.live || null,
     page: w.urls?.detail || `https://www.windy.com/webcams/${w.webcamId}`,
