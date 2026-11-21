@@ -293,8 +293,9 @@
   body.neon .sec,body.neon .k{color:#5fa39b;letter-spacing:.12em}
   #nHud,#nClock{display:none}
   @media (min-width:1000px){
-    body.neon #nHud{display:flex;position:absolute;z-index:505;top:84px;right:calc(var(--rw) + 14px);gap:2px;padding:6px 8px;background:rgba(4,10,14,.9);border:1px solid #134040;border-radius:12px;transition:right .2s}
+    body.neon #nHud{display:none;position:absolute;z-index:505;top:84px;right:calc(var(--rw) + 14px);gap:2px;padding:6px 8px;background:rgba(4,10,14,.9);border:1px solid #134040;border-radius:12px;transition:right .2s}
     body.rc.neon #nHud{right:14px}
+    @media (min-width:1300px){ body.neon #nHud{display:flex} }
     #nHud div{padding:0 10px;border-left:1px solid #0f2f2f}
     #nHud div:first-child{border-left:0}
     #nHud span{display:block;font:500 9.5px var(--ui);letter-spacing:.14em;text-transform:uppercase;color:#5fa39b}
