@@ -310,9 +310,37 @@
     body.lc.neon #nClock{left:16px}
     #nClock b{display:block;font:600 30px var(--mono);color:#eafffa;letter-spacing:.04em;text-shadow:0 0 14px rgba(62,230,193,.55)}
   }
+
+  /* ---- Oppstartsbilde ---- */
+  #splash{position:fixed;inset:0;z-index:9000;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:22px;background:radial-gradient(80% 60% at 50% 40%,#0b3a3e 0,#04141c 60%,#020a10 100%);transition:opacity .6s ease,visibility .6s;cursor:pointer;padding:16px}
+  #splash.out{opacity:0;visibility:hidden}
+  #splash .cardw{position:relative;width:min(92vw,680px);animation:spIn .9s cubic-bezier(.2,.8,.2,1) both}
+  #splash .cardw img{display:block;width:100%;height:auto;border-radius:5.2%/7.5%;box-shadow:0 0 0 1px rgba(95,227,204,.4),0 18px 60px rgba(20,170,150,.3)}
+  #splash .beta{position:absolute;top:-12px;right:-8px;font:700 13px/1 var(--ui);letter-spacing:.22em;text-transform:uppercase;color:#04201c;background:linear-gradient(135deg,#9ff5e2,#3fd6b9);padding:8px 12px 8px 14px;border-radius:999px;box-shadow:0 0 0 3px rgba(4,20,28,.85),0 6px 20px rgba(63,214,185,.45);animation:spBeta .5s .5s ease both}
+  #splash .tag{font:500 15px var(--ui);color:#a9d9d1;letter-spacing:.04em;animation:spIn .9s .2s ease both}
+  #splash .ln{width:min(46vw,220px);height:3px;border-radius:2px;background:rgba(255,255,255,.12);overflow:hidden}
+  #splash .ln b{display:block;height:100%;width:40%;border-radius:2px;background:linear-gradient(90deg,transparent,#5fe3cc,transparent);animation:spLoad 1.3s ease-in-out infinite}
+  #splash .by,#splash .ver{position:absolute;bottom:max(14px,env(safe-area-inset-bottom));font:500 13px var(--ui);color:rgba(190,235,228,.7)}
+  #splash .by{left:max(16px,env(safe-area-inset-left))} #splash .ver{right:max(16px,env(safe-area-inset-right))}
+  @keyframes spIn{from{opacity:0;transform:translateY(10px) scale(.98)}to{opacity:1;transform:none}}
+  @keyframes spBeta{from{opacity:0;transform:scale(.6) rotate(-8deg)}to{opacity:1;transform:none}}
+  @keyframes spLoad{from{transform:translateX(-120%)}to{transform:translateX(320%)}}
+  @media (prefers-reduced-motion:reduce){#splash *{animation:none!important}}
 </style>
 </head>
 <body>
+<div id="splash" role="img" aria-label="SeaPulse – skipstrafikk i sanntid, beta"><div class="cardw"><img src="start-sea.jpg?v=2" alt="SeaPulse" width="749" height="413"><span class="beta">Beta</span></div><div class="tag">Skipstrafikk i sanntid</div><div class="ln"><b></b></div><div class="by">Utviklet av Grøtbekklia AS</div><div class="ver">Versjon 1.0.0 · Beta</div></div>
+<script>
+/* Oppstartsbilde: vises ca. 3 sekunder, trykk for å hoppe over */
+(function(){
+  var sp = document.getElementById("splash"); if (!sp) return;
+  var done = false;
+  function hide(){ if (done) return; done = true; sp.classList.add("out"); setTimeout(function(){ if (sp.parentNode) sp.parentNode.removeChild(sp); }, 700); }
+  sp.addEventListener("click", hide);
+  setTimeout(hide, 3000);
+})();
+</script>
+
 <div id="map"></div>
 
 <div class="top">
