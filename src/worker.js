@@ -179,7 +179,7 @@ const RELAY_READ_MS = 4000;
 const RELAY_EVERY_MS = 8000;
 let lastRelay = 0;
 let relayError = null;
-let relaying = null;
+let relayBusyUntil = 0;
 
 async function relayOnce(env, hub) {
   try { await relayInner(env, hub); }
@@ -235,7 +235,7 @@ const DT = "https://meri.digitraffic.fi/api/ais/v1/";
 const DT_HEADERS = { "Digitraffic-User": "Batblikk", "Accept-Encoding": "gzip", Accept: "application/json" };
 const DT_POS_EVERY_MS = 30 * 1000;
 const DT_META_EVERY_MS = 15 * 60 * 1000;
-let lastDtPos = 0, lastDtMeta = 0, dtRunning = null, dtError = null;
+let lastDtPos = 0, lastDtMeta = 0, dtBusyUntil = 0, dtError = null;
 
 async function digitrafficOnce(hub) {
   const now = Date.now();
@@ -280,28 +280,34 @@ async function handle(request, env) {
       return hubStub(env).fetch(request);
     }
     if (url.pathname === "/api/ships") {
+      // Ingen delte promises mellom forespørsler: Cloudflare dropper dem når
+      // forespørselen som lagde dem avsluttes, og da ville alle senere kall henge
+      // («This promise was created by a request that has since ended»).
+      // I stedet en tidsbegrenset «opptatt»-markør; bare forespørselen som
+      // starter jobben venter på den.
       const hub = hubStub(env);
-      if (Date.now() - lastDtPos > DT_POS_EVERY_MS) dtRunning = dtRunning || digitrafficOnce(hub).finally(() => (dtRunning = null));
-      let res = await hub.fetch(request);
-      const data = await res.json();
+      const now = Date.now();
+      let dtJob = null;
+      if (now - lastDtPos > DT_POS_EVERY_MS && now > dtBusyUntil) {
+        dtBusyUntil = now + 20000;
+        dtJob = digitrafficOnce(hub).catch(() => {}).finally(() => (dtBusyUntil = 0));
+      }
+      const data = await (await hub.fetch(request)).json();
       const hubLive = data.stats.connected && Date.now() - data.stats.lastData < 15000;
-      if (!hubLive && Date.now() - lastRelay > RELAY_EVERY_MS) {
+      let relayJob = null;
+      if (!hubLive && Date.now() - lastRelay > RELAY_EVERY_MS && Date.now() > relayBusyUntil) {
         lastRelay = Date.now();
-        relaying = relaying || relayOnce(env, hub).finally(() => (relaying = null));
-        await Promise.all([relaying, dtRunning]);
-        const fresh = await (await hub.fetch(request)).json();
-        fresh.stats.relayError = relayError;
-        fresh.stats.finlandError = dtError;
-        return Response.json(fresh, { headers: { "Cache-Control": "no-store" } });
+        relayBusyUntil = Date.now() + 15000;
+        relayJob = relayOnce(env, hub).catch(() => {}).finally(() => (relayBusyUntil = 0));
       }
-      if (dtRunning) {
-        await dtRunning;
-        const fresh = await (await hub.fetch(request)).json();
-        Object.assign(data, fresh);
+      let out = data;
+      if (dtJob || relayJob) {
+        await Promise.all([dtJob, relayJob]);
+        out = await (await hub.fetch(request)).json();
       }
-      data.stats.relayError = relayError;
-      data.stats.finlandError = dtError;
-      return Response.json(data, { headers: { "Cache-Control": "no-store" } });
+      out.stats.relayError = relayError;
+      out.stats.finlandError = dtError;
+      return Response.json(out, { headers: { "Cache-Control": "no-store" } });
     }
     return env.ASSETS.fetch(request);
   }
