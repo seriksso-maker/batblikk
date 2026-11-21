@@ -19,7 +19,14 @@
   .dot.on { background:#2a9d4b; }
   input[type=search] { width:100%; box-sizing:border-box; padding:6px 8px; border:1px solid var(--line); border-radius:6px; background:var(--bg); color:var(--fg); margin-bottom:8px; }
   .cats label { display:flex; align-items:center; gap:6px; padding:2px 0; cursor:pointer; }
-  .cats .sw { width:10px; height:10px; border-radius:2px; }
+  .cats .sw { width:18px; height:18px; flex:none; display:inline-flex; align-items:center; justify-content:center; }
+  .cats .sw svg { overflow:visible; }
+  #tracking { display:none; margin:0 0 8px; padding:6px 8px; border-radius:6px; background:rgba(230,57,70,.12); font-size:12px; align-items:center; gap:6px; }
+  #tracking.on { display:flex; }
+  #tracking button { margin-left:auto; border:0; background:none; color:var(--fg); cursor:pointer; font-size:14px; }
+  .acts { display:flex; gap:6px; margin-top:8px; flex-wrap:wrap; }
+  .acts button { font:inherit; font-size:12px; padding:4px 9px; border-radius:5px; border:1px solid #c9d3da; background:#f3f6f8; color:#14202b; cursor:pointer; }
+  .acts button.on { background:#e63946; border-color:#e63946; color:#fff; }
   .cats .n { margin-left:auto; color:var(--muted); font-variant-numeric:tabular-nums; }
   #toggle { display:none; }
   @media (max-width:600px) { #panel.collapsed .body { display:none; } #toggle { display:inline; float:right; border:0; background:none; color:var(--fg); font-size:16px; } }
@@ -38,6 +45,7 @@
   <button id="toggle" aria-label="Vis/skjul">☰</button>
   <h1>Båtblikk</h1>
   <div id="status"><span class="dot"></span>Kobler til …</div>
+  <div id="tracking"><span>📍</span><span id="tracking-name"></span><button id="tracking-stop" aria-label="Slutt å spore">✕</button></div>
   <div class="body">
     <input id="q" type="search" placeholder="Søk på navn eller MMSI">
     <div class="cats" id="cats"></div>
@@ -72,14 +80,30 @@ const markers = new Map(); // mmsi -> { marker, key }
 let ships = [];
 let query = "";
 
+// Ovenfra-silhuetter, baugen peker opp (roteres etter kurs). viewBox -12..12.
+const SHAPES = {
+  cargo:   `<path d="M0,-11 L4,-6 L4,10 L-4,10 L-4,-6 Z"/><g fill="#fff" fill-opacity=".55" stroke="none"><rect x="-2.6" y="-4.5" width="5.2" height="3.2"/><rect x="-2.6" y="-0.4" width="5.2" height="3.2"/><rect x="-2.6" y="3.7" width="5.2" height="3.2"/></g>`,
+  tanker:  `<path d="M0,-11 C3.5,-9 4,-6 4,-4 L4,9 Q4,10.5 2.5,10.5 L-2.5,10.5 Q-4,10.5 -4,9 L-4,-4 C-4,-6 -3.5,-9 0,-11 Z"/><g fill="#fff" fill-opacity=".6" stroke="none"><circle cy="-3" r="1.7"/><circle cy="1.5" r="1.7"/><circle cy="6" r="1.7"/></g>`,
+  passenger:`<path d="M-4.5,-7 Q0,-12 4.5,-7 L4.5,7 Q0,12 -4.5,7 Z"/><g fill="#fff" fill-opacity=".6" stroke="none"><rect x="-2.8" y="-5" width="5.6" height="2.2" rx=".6"/><rect x="-2.8" y="-1.1" width="5.6" height="2.2" rx=".6"/><rect x="-2.8" y="2.8" width="5.6" height="2.2" rx=".6"/></g>`,
+  fishing: `<path d="M0,-8 L3.5,-3 L3.5,7 L-3.5,7 L-3.5,-3 Z"/><path d="M-7,-5 L0,1 L7,-5" fill="none" stroke-width="1.4"/><circle cy="1" r="1.3" fill="#fff" stroke="none"/>`,
+  leisure: `<path d="M0,-8 L2.6,-3 L2.6,7 L-2.6,7 L-2.6,-3 Z"/><path d="M0.6,-6 L0.6,5 L6,3.5 Z" fill="#fff" fill-opacity=".85"/>`,
+  service: `<path d="M0,-7.5 Q4.5,-6.5 4.5,-2 L4.5,6 Q4.5,7.5 3,7.5 L-3,7.5 Q-4.5,7.5 -4.5,6 L-4.5,-2 Q-4.5,-6.5 0,-7.5 Z"/><circle cy="0.5" r="2.2" fill="#fff" fill-opacity=".7" stroke="none"/>`,
+  fast:    `<path d="M-3,-10 L-1.4,-5 L-1.4,8 L-4.6,8 L-4.6,-5 Z M3,-10 L4.6,-5 L4.6,8 L1.4,8 L1.4,-5 Z"/><rect x="-4.6" y="-1" width="9.2" height="5" rx="1"/>`,
+  other:   `<path d="M0,-9 L5,8 L0,5 L-5,8 Z"/>`,
+};
+function shipSvg(catId, color, size, rot, faded) {
+  return `<svg width="${size}" height="${size}" viewBox="-12 -12 24 24" style="transform:rotate(${rot}deg) scaleX(1.25)${faded ? ";opacity:.6" : ""}"><g fill="${color}" stroke="#fff" stroke-width="1.1" stroke-linejoin="round">${SHAPES[catId]}</g></svg>`;
+}
 function iconFor(s, cat) {
   const moving = s.sog != null && s.sog > 0.5;
-  const rot = Math.round(s.heading ?? s.cog ?? 0);
-  const svg = moving
-    ? `<svg width="18" height="18" viewBox="-9 -9 18 18" style="transform:rotate(${rot}deg)"><path d="M0,-8 L5,7 L0,4 L-5,7 Z" fill="${cat.color}" stroke="#fff" stroke-width="1.2"/></svg>`
-    : `<svg width="12" height="12" viewBox="-6 -6 12 12"><circle r="4.5" fill="${cat.color}" stroke="#fff" stroke-width="1.2"/></svg>`;
-  const size = moving ? 18 : 12;
-  return { key: `${cat.id}|${moving}|${moving ? Math.round(rot/5) : 0}`, icon: L.divIcon({ className:"ship-icon", html:svg, iconSize:[size,size], iconAnchor:[size/2,size/2] }) };
+  const hdg = s.heading ?? (moving ? s.cog : null);
+  const rot = Math.round(hdg ?? 0);
+  const tracked = tracking && tracking.mmsi === s.mmsi;
+  const z = map.getZoom(), zb = z <= 6 ? 0 : z <= 9 ? 1 : 2;
+  const size = [[20, 16], [30, 24], [40, 32]][zb][moving ? 0 : 1] + (tracked ? 8 : 0);
+  const color = tracked ? "#e63946" : cat.color;
+  return { key: `${cat.id}|${moving}|${Math.round(rot/5)}|${tracked}|${zb}`,
+    icon: L.divIcon({ className:"ship-icon", html:shipSvg(cat.id, color, size, rot, !moving && !tracked), iconSize:[size,size], iconAnchor:[size/2,size/2] }) };
 }
 
 function esc(v) { return String(v).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
@@ -97,7 +121,9 @@ function popupHtml(s, now) {
     s.destination && ["Destinasjon", s.destination],
     ["Sist sett", ago(now - s.seen)],
   ].filter(Boolean);
-  return `${photoHtml(s)}<b>${esc(s.name || "Ukjent navn")}</b><table>${rows.map(([k,v]) => `<tr><td>${k}</td><td>${esc(v)}</td></tr>`).join("")}</table>`;
+  const on = tracking && tracking.mmsi === s.mmsi;
+  const acts = `<div class="acts"><button type="button" data-act="track" data-mmsi="${s.mmsi}" class="${on ? "on" : ""}">${on ? "Slutt å spore" : "Spor ruten"}</button>${on ? `<button type="button" data-act="follow" class="${tracking.follow ? "on" : ""}">${tracking.follow ? "Følger båten" : "Følg båten"}</button>` : ""}</div>`;
+  return `${photoHtml(s)}<b>${esc(s.name || "Ukjent navn")}</b><table>${rows.map(([k,v]) => `<tr><td>${k}</td><td>${esc(v)}</td></tr>`).join("")}</table>${acts}`;
 }
 
 function matches(s) {
@@ -112,7 +138,8 @@ function render(now) {
   for (const s of ships) {
     const cat = catOf(s.shipType);
     counts[cat.id]++;
-    if (!enabled.has(cat.id) || !matches(s)) continue;
+    const isTracked = tracking && tracking.mmsi === s.mmsi;
+    if (!isTracked && (!enabled.has(cat.id) || !matches(s))) continue;
     seen.add(s.mmsi); shown++;
     const { key, icon } = iconFor(s, cat);
     let m = markers.get(s.mmsi);
@@ -168,12 +195,57 @@ function photoHtml(s) {
 }
 
 document.getElementById("cats").innerHTML = CATS.map(c =>
-  `<label><input type="checkbox" data-id="${c.id}" checked><span class="sw" style="background:${c.color}"></span>${c.label}<span class="n" id="n-${c.id}">0</span></label>`).join("");
+  `<label><input type="checkbox" data-id="${c.id}" checked><span class="sw">${shipSvg(c.id, c.color, 18, 0, false)}</span>${c.label}<span class="n" id="n-${c.id}">0</span></label>`).join("");
 document.getElementById("cats").addEventListener("change", e => {
   const id = e.target.dataset.id; e.target.checked ? enabled.add(id) : enabled.delete(id); render(Date.now());
 });
 document.getElementById("q").addEventListener("input", e => { query = e.target.value.trim().toLowerCase(); render(Date.now()); });
 document.getElementById("toggle").addEventListener("click", () => document.getElementById("panel").classList.toggle("collapsed"));
+
+// ---- Sporing av rute ----
+let tracking = null; // { mmsi, name, line, follow }
+async function updateTrack() {
+  if (!tracking) return;
+  const t = tracking;
+  try {
+    const pts = await fetch("api/track?mmsi=" + t.mmsi, { cache: "no-store" }).then(r => r.json());
+    if (tracking !== t) return;
+    const s = ships.find(x => x.mmsi === t.mmsi);
+    const latlngs = pts.map(p => [p[0], p[1]]);
+    if (s) latlngs.push([s.lat, s.lon]);
+    t.line.setLatLngs(latlngs);
+    if (s && t.follow) map.panTo([s.lat, s.lon], { animate: true });
+  } catch {}
+}
+function startTracking(mmsi) {
+  stopTracking();
+  const s = ships.find(x => x.mmsi === mmsi);
+  tracking = { mmsi, name: (s && s.name) || String(mmsi), follow: false,
+    line: L.polyline([], { color:"#e63946", weight:3, opacity:.85, dashArray:"6 5" }).addTo(map) };
+  document.getElementById("tracking-name").textContent = "Sporer " + tracking.name;
+  document.getElementById("tracking").classList.add("on");
+  updateTrack(); render(Date.now());
+}
+function stopTracking() {
+  if (!tracking) return;
+  tracking.line.remove(); tracking = null;
+  document.getElementById("tracking").classList.remove("on");
+  render(Date.now());
+}
+document.addEventListener("click", e => {
+  const b = e.target.closest("[data-act]");
+  if (!b) return;
+  if (b.dataset.act === "track") {
+    const mmsi = Number(b.dataset.mmsi);
+    tracking && tracking.mmsi === mmsi ? stopTracking() : startTracking(mmsi);
+  } else if (b.dataset.act === "follow" && tracking) {
+    tracking.follow = !tracking.follow; updateTrack();
+  }
+  const m = tracking ? markers.get(tracking.mmsi) : null;
+  for (const mk of markers.values()) if (mk.marker.isPopupOpen()) mk.marker.setPopupContent(popupHtml(mk.ship, Date.now()));
+});
+document.getElementById("tracking-stop").addEventListener("click", stopTracking);
+map.on("zoomend", () => render(Date.now()));
 
 async function poll() {
   const st = document.getElementById("status");
@@ -182,6 +254,7 @@ async function poll() {
     const data = await r.json();
     ships = data.ships;
     const shown = render(data.now);
+    updateTrack();
     const src = data.stats.source === "demo" ? "demo (simulert)" : "Kystverket";
     const st2 = data.stats, fresh = Math.max(st2.lastData || 0, st2.lastRelay || 0);
     const on = st2.connected || data.now - fresh < 20000;

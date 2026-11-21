@@ -10,12 +10,15 @@ import { AisParser } from "./ais.js";
 const MAX_AGE_MS = 30 * 60 * 1000; // vis båter sett siste 30 min
 const ALARM_MS = 30 * 1000; // vekker objektet jevnlig så det holder seg i live
 const STALE_MS = 90 * 1000; // ingen data på så lenge = koble til på nytt
+const TRACK_MS = 6 * 60 * 60 * 1000; // husk rute 6 timer bakover
+const TRACK_MAX = 400;
 const STATIC_KEYS = ["name", "callsign", "shipType", "destination", "imo"];
 
 export class AisHub extends DurableObject {
   constructor(ctx, env) {
     super(ctx, env);
     this.ships = new Map();
+    this.tracks = new Map(); // mmsi -> [[lat, lon, tid], ...] siste timer (bare i minnet)
     this.dirty = new Set(); // mmsi med nye navn/typer som ikke er lagret
     this.stats = { source: "kystverket", connected: false, messages: 0, since: Date.now(), lastData: 0, lastError: null, reconnects: 0, alarms: 0, saved: 0 };
     this.socket = null;
@@ -44,6 +47,10 @@ export class AisHub extends DurableObject {
       this.saveStatic();
       return new Response("ok");
     }
+    if (url.pathname === "/api/track") {
+      const t = this.tracks.get(Number(url.searchParams.get("mmsi"))) || [];
+      return Response.json(t, { headers: { "Cache-Control": "no-store" } });
+    }
     this.ensureConnected();
     if (!(await this.ctx.storage.getAlarm())) await this.ctx.storage.setAlarm(Date.now() + ALARM_MS);
 
@@ -61,11 +68,22 @@ export class AisHub extends DurableObject {
     this.saveStatic();
     const cutoff = Date.now() - MAX_AGE_MS * 2;
     for (const s of this.ships.values()) {
-      if (s.seen && s.seen < cutoff) { delete s.seen; delete s.lat; delete s.lon; }
+      if (s.seen && s.seen < cutoff) { delete s.seen; delete s.lat; delete s.lon; this.tracks.delete(s.mmsi); }
     }
     // Bare hold objektet i live hvis egen tilkobling faktisk har gitt data.
     // Ellers sparer vi gratiskvoten; workeren mater objektet når noen ser på kartet.
     if (this.stats.lastData) await this.ctx.storage.setAlarm(Date.now() + ALARM_MS);
+  }
+
+  addTrackPoint(mmsi, lat, lon, t) {
+    let tr = this.tracks.get(mmsi);
+    if (!tr) { tr = []; this.tracks.set(mmsi, tr); }
+    const last = tr[tr.length - 1];
+    // nytt punkt når båten har flyttet seg ~50 m eller det har gått 2 min
+    if (last && Math.abs(last[0] - lat) < 0.0005 && Math.abs(last[1] - lon) < 0.001 && t - last[2] < 120000) return;
+    tr.push([lat, lon, t]);
+    const cutoff = t - TRACK_MS;
+    while (tr.length && (tr[0][2] < cutoff || tr.length > TRACK_MAX)) tr.shift();
   }
 
   saveStatic() {
@@ -130,7 +148,10 @@ export class AisHub extends DurableObject {
       if (STATIC_KEYS.includes(k) && s[k] !== v) this.dirty.add(msg.mmsi);
       s[k] = v;
     }
-    if (msg.lat != null && msg.lon != null) s.seen = Date.now();
+    if (msg.lat != null && msg.lon != null) {
+      s.seen = Date.now();
+      this.addTrackPoint(msg.mmsi, msg.lat, msg.lon, s.seen);
+    }
     this.ships.set(msg.mmsi, s);
     this.stats.messages++;
   }
@@ -176,6 +197,9 @@ async function relayOnce(env, hub) {
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
+    if (url.pathname === "/api/track") {
+      return env.AIS_HUB.get(env.AIS_HUB.idFromName("norge-eu"), { locationHint: "weur" }).fetch(request);
+    }
     if (url.pathname === "/api/ships") {
       const hub = env.AIS_HUB.get(env.AIS_HUB.idFromName("norge-eu"), { locationHint: "weur" });
       let res = await hub.fetch(request);
