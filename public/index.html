@@ -147,7 +147,7 @@
   <label class="tog">Ruten følger valgt båt<input type="checkbox" id="followChk"></label>
   <div class="row2"><button type="button" id="locBtn">Gå til min posisjon</button></div>
   <label class="h">Kilder</label>
-  <p class="note">AIS-data fra Kystverket (NLOD) og Digitraffic/Fintraffic, Finland (CC BY 4.0). Bilder fra Wikimedia Commons. Kart fra OpenStreetMap, Kartverket, Esri, CARTO og OpenSeaMap.</p>
+  <p class="note">AIS-data fra Kystverket (NLOD) og Digitraffic/Fintraffic, Finland (CC BY 4.0). Bilder fra Wikimedia Commons. Kart fra OpenStreetMap, Kartverket, Esri og OpenSeaMap.</p>
   <p class="note" id="srcStat"></p>
 </section>
 
@@ -190,7 +190,7 @@ map.attributionControl.addAttribution("AIS: Kystverket, Digitraffic");
 const KV = "https://cache.kartverket.no/v1/wmts/1.0.0/";
 const kvAttr = '&copy; <a href="https://www.kartverket.no/">Kartverket</a>';
 const BASES = {
-  dark: { label:"Mørkt", layer:L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png", { maxZoom:19, subdomains:"abcd", attribution:'&copy; OpenStreetMap &copy; <a href="https://carto.com/attributions">CARTO</a>' }) },
+  dark: { label:"Mørkt", layer:L.layerGroup([L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}", { maxZoom:19, maxNativeZoom:16, attribution:"Kart &copy; Esri" }), L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Reference/MapServer/tile/{z}/{y}/{x}", { maxZoom:19, maxNativeZoom:16 })]) },
   osm:  { label:"Vanlig kart", layer:L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom:19, attribution:'&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>' }) },
   sjo:  { label:"Sjøkart", layer:L.tileLayer(KV + "sjokartraster/default/webmercator/{z}/{y}/{x}.png", { maxZoom:18, attribution:kvAttr }) },
   topo: { label:"Topografisk", layer:L.tileLayer(KV + "topo/default/webmercator/{z}/{y}/{x}.png", { maxZoom:18, attribution:kvAttr }) },
