@@ -255,6 +255,23 @@
   body.cams #camNote:not(:empty){display:block}
   @media (min-width:1000px){ .leaflet-bottom.leaflet-right .leaflet-control-zoom{margin-bottom:80px!important} }
   @media (min-width:1000px){ #camNote{left:calc(var(--lw) + (100% - var(--lw) - var(--rw))/2);top:84px} }
+
+  /* Kompakt knapperad nederst (PC) og meny (mobil) */
+  @media (min-width:1000px){
+    .styles{gap:2px;padding:3px;background:rgba(8,17,28,.9);border:1px solid var(--line);border-radius:12px;bottom:14px}
+    .styles button{padding:4px 9px;min-height:28px;font-size:12px;border-radius:9px;border-color:transparent;background:none}
+    .styles button.on{border-color:#5aa9d6}
+    .styles .sep{width:1px;background:var(--line);margin:4px 3px}
+    .sheet{bottom:58px}
+    #wxFc{bottom:58px}
+    .leaflet-bottom.leaflet-right .leaflet-control-zoom{margin-bottom:56px!important}
+  }
+  .dock{padding:3px 4px 2px;border-radius:20px}
+  .dock button{font-size:10px;gap:0;padding:2px 3px}
+  .dock svg{width:20px;height:20px}
+  .sheet{bottom:calc(58px + env(safe-area-inset-bottom))}
+  .status{bottom:calc(60px + env(safe-area-inset-bottom))}
+  @media (max-width:640px){ .dock svg{width:19px;height:19px} .sheet{bottom:calc(54px + env(safe-area-inset-bottom))} .status{bottom:calc(56px + env(safe-area-inset-bottom))} #wxFc{bottom:calc(92px + env(safe-area-inset-bottom))} }
 </style>
 </head>
 <body>
@@ -350,13 +367,13 @@
 
 <div class="styles" id="styles">
   <button type="button" data-style="dark">🌑 Mørkt</button>
-  <button type="button" data-style="sat">🛰️ Flyfoto</button>
-  <button type="button" data-style="night">🧭 Nattsjøkart</button>
-  <button type="button" data-style="sjo">⚓ Sjøkart</button>
+  <button type="button" data-style="sat">🛰️ Foto</button>
+  <button type="button" data-style="night">🧭 Natt</button>
+  <button type="button" data-style="sjo">⚓ Sjø</button>
   <button type="button" data-style="light">☀️ Lyst</button>
-  <button type="button" data-style="more">Flere kart …</button>
-  <button type="button" class="wxb" data-wx="1">🌊 Vær og bølger</button>
-  <button type="button" class="wxb" data-cam="1">📷 Webkamera</button>
+  <button type="button" data-style="more">Mer …</button>
+  <span class="sep"></span><button type="button" class="wxb" data-wx="1">🌊 Vær</button>
+  <button type="button" class="wxb" data-cam="1">📷 Kamera</button>
   <button type="button" class="rad" id="radarBtn2">📡 Radar</button>
 </div>
 <aside id="panel" hidden></aside>
