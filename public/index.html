@@ -70,9 +70,29 @@ const catOf = t => CATS.find(c => t != null && c.test(t)) || CATS[CATS.length-1]
 const typeName = t => t==null ? "Ukjent" : TYPE_NAMES[t] || (t>=40&&t<50?"Hurtigbåt":t>=60&&t<70?"Passasjer":t>=70&&t<80?"Lasteskip":t>=80&&t<90?"Tankskip":`Type ${t}`);
 
 const map = L.map("map", { zoomControl:false }).setView([64.5, 12], 5);
-L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
-  maxZoom: 18, attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> · AIS: Kystverket (NLOD)'
-}).addTo(map);
+// ---- Kartvalg ----
+const KV = "https://cache.kartverket.no/v1/wmts/1.0.0/";
+const kvAttr = '&copy; <a href="https://www.kartverket.no/">Kartverket</a>';
+const BASES = {
+  "Vanlig kart (OpenStreetMap)": L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 19, attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>' }),
+  "Sjøkart (Kartverket)": L.tileLayer(KV + "sjokartraster/default/webmercator/{z}/{y}/{x}.png", { maxZoom: 18, attribution: kvAttr }),
+  "Topografisk (Kartverket)": L.tileLayer(KV + "topo/default/webmercator/{z}/{y}/{x}.png", { maxZoom: 18, attribution: kvAttr }),
+  "Gråtone (Kartverket)": L.tileLayer(KV + "topograatone/default/webmercator/{z}/{y}/{x}.png", { maxZoom: 18, attribution: kvAttr }),
+  "Flyfoto (Esri)": L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}", { maxZoom: 18, attribution: "Bilder &copy; Esri, Maxar, Earthstar Geographics" }),
+  "Mørkt kart": L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png", { maxZoom: 19, subdomains: "abcd", attribution: '&copy; OpenStreetMap &copy; <a href="https://carto.com/attributions">CARTO</a>' }),
+};
+const OVERLAYS = {
+  "Sjømerker og fyr (OpenSeaMap)": L.tileLayer("https://tiles.openseamap.org/seamark/{z}/{x}/{y}.png", { maxZoom: 18, attribution: '&copy; <a href="https://www.openseamap.org">OpenSeaMap</a>' }),
+};
+const store = { get(k) { try { return localStorage.getItem(k); } catch { return null; } }, set(k, v) { try { localStorage.setItem(k, v); } catch {} } };
+const savedBase = store.get("batblikk.base");
+(BASES[savedBase] || BASES["Vanlig kart (OpenStreetMap)"]).addTo(map);
+for (const name of JSON.parse(store.get("batblikk.overlays") || "[]")) if (OVERLAYS[name]) OVERLAYS[name].addTo(map);
+L.control.layers(BASES, OVERLAYS, { position: "topright" }).addTo(map);
+map.attributionControl.addAttribution("AIS: Kystverket (NLOD)");
+map.on("baselayerchange", e => store.set("batblikk.base", e.name));
+const saveOverlays = () => store.set("batblikk.overlays", JSON.stringify(Object.keys(OVERLAYS).filter(n => map.hasLayer(OVERLAYS[n]))));
+map.on("overlayadd overlayremove", saveOverlays);
 L.control.zoom({ position:"bottomright" }).addTo(map);
 
 const enabled = new Set(CATS.map(c => c.id));
