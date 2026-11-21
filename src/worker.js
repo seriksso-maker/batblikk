@@ -358,15 +358,20 @@ async function webcams(url, env, ctx) {
   const cache = caches.default;
   const hit = await cache.match(key);
   if (hit) return hit;
-  const api = "https://api.windy.com/webcams/api/v3/webcams?" + new URLSearchParams({
+  // Windy tolker flere kategorier som «og», så vi spør per kategori og slår sammen
+  const cats = url.searchParams.get("cat") === "alle" ? [null] : (url.searchParams.get("cat") || "port,coast").split(",");
+  const ask = (cat) => fetch("https://api.windy.com/webcams/api/v3/webcams?" + new URLSearchParams({
     nearby: `${lat.toFixed(2)},${lon.toFixed(2)},${Math.round(r / 25) * 25 || 25}`,
-    ...(url.searchParams.get("cat") === "alle" ? {} : { categories: url.searchParams.get("cat") || "port,coast,beach,lake" }),
+    ...(cat ? { categories: cat } : {}),
     include: "images,location,player,urls,categories",
     limit: "50", lang: "nb",
-  });
-  const res = await fetch(api, { headers: { "x-windy-api-key": env.WINDY_KEY } });
-  if (!res.ok) return Response.json({ error: "Windy svarte " + res.status, detail: (await res.text()).slice(0, 300), webcams: [] });
-  const j = await res.json();
+  }), { headers: { "x-windy-api-key": env.WINDY_KEY } });
+  const resps = await Promise.all(cats.map(ask));
+  const bad = resps.find((x) => !x.ok);
+  if (bad) return Response.json({ error: "Windy svarte " + bad.status, detail: (await bad.text()).slice(0, 300), webcams: [] });
+  const all = new Map();
+  for (const x of resps) for (const w of (await x.json()).webcams || []) all.set(w.webcamId, w);
+  const j = { total: all.size, webcams: [...all.values()] };
   const list = (j.webcams || []).map((w) => ({
     id: w.webcamId, title: w.title, lat: w.location?.latitude, lon: w.location?.longitude, city: w.location?.city,
     harbor: (w.categories || []).some((c) => c.id === "port"),
