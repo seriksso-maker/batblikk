@@ -86,22 +86,26 @@
     else { sup(-hl*0.8, -hl*0.45, B*0.75, hull, hull + B*0.6, white); }
   }
 
+  // Bare de nærmeste båtene bygges som 3D (de lengst unna er uansett bare prikker)
+  const MAX3D = 220;
   function buildData() {
-    const m = st.map, now = Date.now(), b = m.getBounds(), z = m.getZoom();
-    const mpp = (78271.5 * cosd(m.getCenter().lat)) / Math.pow(2, z);
-    const feats = [];
-    let n = 0;
-    const pad = 0.3, w = b.getWest(), e = b.getEast(), so = b.getSouth(), no = b.getNorth();
-    const dw = (e - w) * pad, dh = (no - so) * pad;
+    const m = st.map, now = Date.now(), b = m.getBounds(), z = m.getZoom(), ctr = m.getCenter();
+    const mpp = (78271.5 * cosd(ctr.lat)) / Math.pow(2, z);
+    const w = b.getWest(), e = b.getEast(), so = b.getSouth(), no = b.getNorth(), kx = cosd(ctr.lat);
+    const near = [];
     for (const s of ships) {
       if (s.lat == null) continue;
       const tr = st.follow === s.mmsi;
-      if (!tr && (s.lon < w - dw || s.lon > e + dw || s.lat < so - dh || s.lat > no + dh)) continue;
-      if (++n > 1500 && !tr) continue;
-      const c = pos(s, now), [L0] = sizeOf(s);
+      if (!tr && (s.lon < w || s.lon > e || s.lat < so || s.lat > no)) continue;
+      const dx = (s.lon - ctr.lng) * kx, dy = s.lat - ctr.lat;
+      near.push([tr ? -1 : dx * dx + dy * dy, s]);
+    }
+    if (near.length > MAX3D) { near.sort((a, b2) => a[0] - b2[0]); near.length = MAX3D; }
+    const feats = [];
+    for (const [, s] of near) {
+      const tr = st.follow === s.mmsi, c = pos(s, now), [L0] = sizeOf(s);
       const k = Math.min(80, Math.max(1, (26 * mpp) / L0)); // minst ca. 26 piksler lang
-      const cat = catOf(s.shipType);
-      shipFeatures(s, c, hdgOf(s), k, tr ? "#ffb454" : cat.color, feats);
+      shipFeatures(s, c, hdgOf(s), k, tr ? "#ffb454" : catOf(s.shipType).color, feats);
     }
     m.getSource("ships3d").setData({ type:"FeatureCollection", features:feats });
   }
@@ -142,7 +146,7 @@
     const dt = st.last ? Math.min(0.1, (t - st.last) / 1000) : 0; st.last = t;
     if (!st.map || !st.ready) return;
     if (st.follow != null && !st.userMoving) followCam(dt);
-    if (t - st.upd > 250) { st.upd = t; buildData(); }
+    if (t - st.upd > (st.follow != null ? 400 : 900)) { st.upd = t; buildData(); }
     if (!st.hudT || t - st.hudT > 1000) { st.hudT = t; hud(); }
   }
 
@@ -162,14 +166,14 @@
   function create(center) {
     const m = new maplibregl.Map({
       container:"v3dMap", center, zoom:13, pitch:65, bearing:0, maxPitch:85, attributionControl:{ compact:true },
-      canvasContextAttributes:{ antialias:true },
+      canvasContextAttributes:{ antialias:false, powerPreference:"high-performance" }, pixelRatio:Math.min(window.devicePixelRatio || 1, 1.5), fadeDuration:0,
       style:{
         version:8,
         sources:{
           sat:{ type:"raster", tileSize:256, maxzoom:13, attribution:"Bilder © Esri, Maxar", tiles:["https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"] },
           kart:{ type:"raster", tileSize:256, maxzoom:18, attribution:"© Kartverket", tiles:["https://cache.kartverket.no/v1/wmts/1.0.0/topo/default/webmercator/{z}/{y}/{x}.png"] },
-          dem:{ type:"raster-dem", tileSize:256, maxzoom:14, encoding:"terrarium", attribution:"Terreng: AWS/Mapzen", tiles:["https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png"] },
-          ships3d:{ type:"geojson", data:{ type:"FeatureCollection", features:[] } },
+          dem:{ type:"raster-dem", tileSize:256, maxzoom:12, encoding:"terrarium", attribution:"Terreng: AWS/Mapzen", tiles:["https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png"] },
+          ships3d:{ type:"geojson", maxzoom:14, buffer:16, tolerance:0, data:{ type:"FeatureCollection", features:[] } },
         },
         layers:[
           { id:"bg", type:"background", paint:{ "background-color":"#0b2236" } },
