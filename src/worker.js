@@ -365,7 +365,7 @@ async function webcams(url, env, ctx) {
     limit: "50", lang: "no",
   });
   const res = await fetch(api, { headers: { "x-windy-api-key": env.WINDY_KEY } });
-  if (!res.ok) return Response.json({ error: "Windy svarte " + res.status, webcams: [] });
+  if (!res.ok) return Response.json({ error: "Windy svarte " + res.status, detail: (await res.text()).slice(0, 300), webcams: [] });
   const j = await res.json();
   const list = (j.webcams || []).map((w) => ({
     id: w.webcamId, title: w.title, lat: w.location?.latitude, lon: w.location?.longitude, city: w.location?.city,
