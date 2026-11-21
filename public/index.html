@@ -1,0 +1,160 @@
+<!doctype html>
+<html lang="no">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Båtblikk</title>
+<link rel="stylesheet" href="vendor/leaflet/leaflet.css">
+<style>
+  :root { --bg:#fff; --fg:#14202b; --muted:#5b6b78; --line:#dde3e8; --panel:rgba(255,255,255,.95); }
+  @media (prefers-color-scheme: dark) { :root { --bg:#0f171e; --fg:#e6edf3; --muted:#93a3b1; --line:#26333e; --panel:rgba(18,27,35,.95); } }
+  html, body { margin:0; height:100%; background:var(--bg); color:var(--fg); font:14px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  #map { position:absolute; inset:0; }
+  #panel { position:absolute; z-index:1000; top:12px; left:12px; width:260px; max-width:calc(100vw - 48px);
+           background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:12px 14px; box-shadow:0 2px 12px rgba(0,0,0,.15); }
+  h1 { font-size:17px; margin:0 0 2px; }
+  #status { color:var(--muted); font-size:12px; margin-bottom:10px; }
+  #status b { color:var(--fg); }
+  .dot { display:inline-block; width:8px; height:8px; border-radius:50%; background:#c33; margin-right:5px; vertical-align:middle; }
+  .dot.on { background:#2a9d4b; }
+  input[type=search] { width:100%; box-sizing:border-box; padding:6px 8px; border:1px solid var(--line); border-radius:6px; background:var(--bg); color:var(--fg); margin-bottom:8px; }
+  .cats label { display:flex; align-items:center; gap:6px; padding:2px 0; cursor:pointer; }
+  .cats .sw { width:10px; height:10px; border-radius:2px; }
+  .cats .n { margin-left:auto; color:var(--muted); font-variant-numeric:tabular-nums; }
+  #toggle { display:none; }
+  @media (max-width:600px) { #panel.collapsed .body { display:none; } #toggle { display:inline; float:right; border:0; background:none; color:var(--fg); font-size:16px; } }
+  .ship-icon { background:none; border:0; }
+  .leaflet-popup-content { font-size:13px; }
+  .leaflet-popup-content table td:first-child { color:#5b6b78; padding-right:8px; }
+</style>
+</head>
+<body>
+<div id="map"></div>
+<div id="panel">
+  <button id="toggle" aria-label="Vis/skjul">☰</button>
+  <h1>Båtblikk</h1>
+  <div id="status"><span class="dot"></span>Kobler til …</div>
+  <div class="body">
+    <input id="q" type="search" placeholder="Søk på navn eller MMSI">
+    <div class="cats" id="cats"></div>
+  </div>
+</div>
+<script src="vendor/leaflet/leaflet.js"></script>
+<script>
+const CATS = [
+  { id:"passenger", label:"Passasjer / ferje", color:"#1f77d0", test:t=>t>=60&&t<70 },
+  { id:"cargo",     label:"Last",              color:"#2a9d4b", test:t=>t>=70&&t<80 },
+  { id:"tanker",    label:"Tank",              color:"#d0392b", test:t=>t>=80&&t<90 },
+  { id:"fishing",   label:"Fiske",             color:"#e08a00", test:t=>t===30 },
+  { id:"leisure",   label:"Fritid / seil",     color:"#9b51c9", test:t=>t===36||t===37 },
+  { id:"service",   label:"Slep, los, redning", color:"#11a3a3", test:t=>(t>=31&&t<=35)||(t>=50&&t<60) },
+  { id:"fast",      label:"Hurtigbåt",         color:"#e0489a", test:t=>t>=40&&t<50 },
+  { id:"other",     label:"Annet / ukjent",    color:"#7c8a96", test:()=>true },
+];
+const TYPE_NAMES = {30:"Fiskefartøy",31:"Slep",32:"Slep",33:"Mudring",34:"Dykking",35:"Militær",36:"Seilbåt",37:"Fritidsbåt",50:"Losbåt",51:"Redning",52:"Slepebåt",53:"Havnefartøy",54:"Miljøvern",55:"Politi",58:"Ambulanse"};
+const STATUS = ["Under gange (motor)","Til ankers","Ikke manøvrerbar","Begrenset manøvrering","Begrenset av dypgang","Fortøyd","På grunn","Fiske","Under seil"];
+
+const catOf = t => CATS.find(c => t != null && c.test(t)) || CATS[CATS.length-1];
+const typeName = t => t==null ? "Ukjent" : TYPE_NAMES[t] || (t>=40&&t<50?"Hurtigbåt":t>=60&&t<70?"Passasjer":t>=70&&t<80?"Lasteskip":t>=80&&t<90?"Tankskip":`Type ${t}`);
+
+const map = L.map("map", { zoomControl:false }).setView([64.5, 12], 5);
+L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
+  maxZoom: 18, attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> · AIS: Kystverket (NLOD)'
+}).addTo(map);
+L.control.zoom({ position:"bottomright" }).addTo(map);
+
+const enabled = new Set(CATS.map(c => c.id));
+const markers = new Map(); // mmsi -> { marker, key }
+let ships = [];
+let query = "";
+
+function iconFor(s, cat) {
+  const moving = s.sog != null && s.sog > 0.5;
+  const rot = Math.round(s.heading ?? s.cog ?? 0);
+  const svg = moving
+    ? `<svg width="18" height="18" viewBox="-9 -9 18 18" style="transform:rotate(${rot}deg)"><path d="M0,-8 L5,7 L0,4 L-5,7 Z" fill="${cat.color}" stroke="#fff" stroke-width="1.2"/></svg>`
+    : `<svg width="12" height="12" viewBox="-6 -6 12 12"><circle r="4.5" fill="${cat.color}" stroke="#fff" stroke-width="1.2"/></svg>`;
+  const size = moving ? 18 : 12;
+  return { key: `${cat.id}|${moving}|${moving ? Math.round(rot/5) : 0}`, icon: L.divIcon({ className:"ship-icon", html:svg, iconSize:[size,size], iconAnchor:[size/2,size/2] }) };
+}
+
+function esc(v) { return String(v).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
+function ago(ms) { const s = Math.round(ms/1000); return s < 60 ? `${s} s siden` : `${Math.round(s/60)} min siden`; }
+
+function popupHtml(s, now) {
+  const rows = [
+    ["Type", typeName(s.shipType)],
+    ["MMSI", s.mmsi],
+    s.callsign && ["Kallesignal", s.callsign],
+    s.sog != null && ["Fart", `${s.sog.toFixed(1)} knop`],
+    s.cog != null && ["Kurs", `${Math.round(s.cog)}°`],
+    s.status != null && STATUS[s.status] && ["Status", STATUS[s.status]],
+    s.destination && ["Destinasjon", s.destination],
+    ["Sist sett", ago(now - s.seen)],
+  ].filter(Boolean);
+  return `<b>${esc(s.name || "Ukjent navn")}</b><table>${rows.map(([k,v]) => `<tr><td>${k}</td><td>${esc(v)}</td></tr>`).join("")}</table>`;
+}
+
+function matches(s) {
+  if (!query) return true;
+  return (s.name || "").toLowerCase().includes(query) || String(s.mmsi).includes(query);
+}
+
+function render(now) {
+  const counts = Object.fromEntries(CATS.map(c => [c.id, 0]));
+  const seen = new Set();
+  let shown = 0;
+  for (const s of ships) {
+    const cat = catOf(s.shipType);
+    counts[cat.id]++;
+    if (!enabled.has(cat.id) || !matches(s)) continue;
+    seen.add(s.mmsi); shown++;
+    const { key, icon } = iconFor(s, cat);
+    let m = markers.get(s.mmsi);
+    if (!m) {
+      const marker = L.marker([s.lat, s.lon], { icon, title: s.name || String(s.mmsi) }).addTo(map);
+      marker.bindPopup("");
+      m = { marker, key }; markers.set(s.mmsi, m);
+    } else {
+      m.marker.setLatLng([s.lat, s.lon]);
+      if (m.key !== key) { m.marker.setIcon(icon); m.key = key; }
+    }
+    m.ship = s;
+    if (m.marker.isPopupOpen()) m.marker.setPopupContent(popupHtml(s, now));
+  }
+  for (const [mmsi, m] of markers) if (!seen.has(mmsi)) { m.marker.remove(); markers.delete(mmsi); }
+  for (const c of CATS) document.getElementById("n-" + c.id).textContent = counts[c.id];
+  return shown;
+}
+
+map.on("popupopen", e => {
+  for (const m of markers.values()) if (m.marker === e.popup._source) e.popup.setContent(popupHtml(m.ship, Date.now()));
+});
+
+document.getElementById("cats").innerHTML = CATS.map(c =>
+  `<label><input type="checkbox" data-id="${c.id}" checked><span class="sw" style="background:${c.color}"></span>${c.label}<span class="n" id="n-${c.id}">0</span></label>`).join("");
+document.getElementById("cats").addEventListener("change", e => {
+  const id = e.target.dataset.id; e.target.checked ? enabled.add(id) : enabled.delete(id); render(Date.now());
+});
+document.getElementById("q").addEventListener("input", e => { query = e.target.value.trim().toLowerCase(); render(Date.now()); });
+document.getElementById("toggle").addEventListener("click", () => document.getElementById("panel").classList.toggle("collapsed"));
+
+async function poll() {
+  const st = document.getElementById("status");
+  try {
+    const r = await fetch("api/ships", { cache: "no-store" });
+    const data = await r.json();
+    ships = data.ships;
+    const shown = render(data.now);
+    const src = data.stats.source === "demo" ? "demo (simulert)" : "Kystverket";
+    const on = data.stats.connected;
+    st.innerHTML = `<span class="dot ${on ? "on" : ""}"></span><b>${shown}</b> båter vist · ${src}${on ? "" : " · frakoblet"}`;
+  } catch (e) {
+    st.innerHTML = `<span class="dot"></span>Får ikke kontakt med serveren`;
+  }
+}
+poll();
+setInterval(poll, 5000);
+</script>
+</body>
+</html>
