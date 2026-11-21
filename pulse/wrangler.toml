@@ -1,0 +1,9 @@
+# Kort adresse: pulse.seriksso.workers.dev
+# Sender alt videre til batblikk-workeren (kart, API og startside) via en service binding.
+name = "pulse"
+main = "worker.js"
+compatibility_date = "2025-09-01"
+
+[[services]]
+binding = "APP"
+service = "batblikk"
