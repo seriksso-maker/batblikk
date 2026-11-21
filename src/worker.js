@@ -378,7 +378,10 @@ async function handle(request, env) {
       if (env.AISSTREAM_KEY && Date.now() - lastAs > AS_EVERY_MS && Date.now() > asBusyUntil) {
         lastAs = Date.now();
         asBusyUntil = Date.now() + 15000;
-        asJob = aisstreamOnce(env, hub).catch(() => {}).finally(() => (asBusyUntil = 0));
+        asJob = aisstreamOnce(env, hub).catch(() => {}).finally(() => {
+          asBusyUntil = 0;
+          if (asError) lastAs = Date.now() + 2 * 60 * 1000 - AS_EVERY_MS; // nede: prøv igjen om ca. 2 min
+        });
       }
       let out = data;
       if (dtJob || relayJob || asJob) {
