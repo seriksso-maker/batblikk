@@ -89,7 +89,7 @@ const savedBase = store.get("batblikk.base");
 (BASES[savedBase] || BASES["Vanlig kart (OpenStreetMap)"]).addTo(map);
 for (const name of JSON.parse(store.get("batblikk.overlays") || "[]")) if (OVERLAYS[name]) OVERLAYS[name].addTo(map);
 L.control.layers(BASES, OVERLAYS, { position: "topright" }).addTo(map);
-map.attributionControl.addAttribution("AIS: Kystverket (NLOD)");
+map.attributionControl.addAttribution("AIS: Kystverket (NLOD), Digitraffic/Fintraffic (CC BY 4.0)");
 map.on("baselayerchange", e => store.set("batblikk.base", e.name));
 const saveOverlays = () => store.set("batblikk.overlays", JSON.stringify(Object.keys(OVERLAYS).filter(n => map.hasLayer(OVERLAYS[n]))));
 map.on("overlayadd overlayremove", saveOverlays);
@@ -140,6 +140,7 @@ function popupHtml(s, now) {
     s.status != null && STATUS[s.status] && ["Status", STATUS[s.status]],
     s.destination && ["Destinasjon", s.destination],
     ["Sist sett", ago(now - s.seen)],
+    ["Kilde", s.src === "fi" ? "Digitraffic (Finland)" : "Kystverket"],
   ].filter(Boolean);
   const on = tracking && tracking.mmsi === s.mmsi;
   const acts = `<div class="acts"><button type="button" data-act="track" data-mmsi="${s.mmsi}" class="${on ? "on" : ""}">${on ? "Slutt å spore" : "Spor ruten"}</button>${on ? `<button type="button" data-act="follow" class="${tracking.follow ? "on" : ""}">${tracking.follow ? "Følger båten" : "Følg båten"}</button>` : ""}</div>`;
@@ -275,7 +276,7 @@ async function poll() {
     ships = data.ships;
     const shown = render(data.now);
     updateTrack();
-    const src = data.stats.source === "demo" ? "demo (simulert)" : "Kystverket";
+    const src = data.stats.source === "demo" ? "demo (simulert)" : "Kystverket + Finland";
     const st2 = data.stats, fresh = Math.max(st2.lastData || 0, st2.lastRelay || 0);
     // Grønn når data har kommet siste minutt. Rett etter oppstart: «henter».
     const age = fresh ? data.now - fresh : Infinity;

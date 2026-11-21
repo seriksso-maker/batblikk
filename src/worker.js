@@ -196,7 +196,7 @@ async function relayInner(env, hub) {
       const lines = buf.split(/\r?\n/);
       buf = lines.pop();
       for (const l of lines) {
-        try { const m = parser.parseLine(l); if (m) msgs.push(m); } catch {}
+        try { const m = parser.parseLine(l); if (m) { m.src = "no"; msgs.push(m); }; } catch {}
       }
     }
   } catch (e) {
@@ -222,6 +222,39 @@ function hubStub(env) {
   };
 }
 
+// ---- Finland: Digitraffic (åpne AIS-data for Østersjøen, lisens CC BY 4.0) ----
+const DT = "https://meri.digitraffic.fi/api/ais/v1/";
+const DT_HEADERS = { "Digitraffic-User": "Batblikk", "Accept-Encoding": "gzip", Accept: "application/json" };
+const DT_POS_EVERY_MS = 30 * 1000;
+const DT_META_EVERY_MS = 15 * 60 * 1000;
+let lastDtPos = 0, lastDtMeta = 0, dtRunning = null, dtError = null;
+
+async function digitrafficOnce(hub) {
+  const now = Date.now();
+  const msgs = [];
+  try {
+    if (now - lastDtMeta > DT_META_EVERY_MS) {
+      lastDtMeta = now;
+      const vessels = await fetch(DT + "vessels?from=" + (now - 24 * 3600 * 1000), { headers: DT_HEADERS }).then((r) => r.json());
+      for (const v of vessels) {
+        msgs.push({ mmsi: v.mmsi, name: v.name?.trim() || null, callsign: v.callSign || null, shipType: v.shipType ?? null,
+          destination: v.destination?.trim() || null, imo: v.imo || null, src: "fi" });
+      }
+    }
+    lastDtPos = now;
+    const pos = await fetch(DT + "locations?from=" + (now - 20 * 60 * 1000), { headers: DT_HEADERS }).then((r) => r.json());
+    for (const f of pos.features || []) {
+      const p = f.properties, [lon, lat] = f.geometry.coordinates;
+      msgs.push({ mmsi: f.mmsi, lat, lon, sog: p.sog ?? null, cog: p.cog ?? null,
+        heading: p.heading === 511 ? null : p.heading ?? null, status: p.navStat ?? null, src: "fi" });
+    }
+    dtError = null;
+  } catch (e) {
+    dtError = String((e && e.message) || e);
+  }
+  if (msgs.length) await hub.fetch("https://hub/ingest", { method: "POST", body: JSON.stringify(msgs) });
+}
+
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
@@ -230,18 +263,26 @@ export default {
     }
     if (url.pathname === "/api/ships") {
       const hub = hubStub(env);
+      if (Date.now() - lastDtPos > DT_POS_EVERY_MS) dtRunning = dtRunning || digitrafficOnce(hub).finally(() => (dtRunning = null));
       let res = await hub.fetch(request);
       const data = await res.json();
       const hubLive = data.stats.connected && Date.now() - data.stats.lastData < 15000;
       if (!hubLive && Date.now() - lastRelay > RELAY_EVERY_MS) {
         lastRelay = Date.now();
         relaying = relaying || relayOnce(env, hub).finally(() => (relaying = null));
-        await relaying;
+        await Promise.all([relaying, dtRunning]);
         const fresh = await (await hub.fetch(request)).json();
         fresh.stats.relayError = relayError;
+        fresh.stats.finlandError = dtError;
         return Response.json(fresh, { headers: { "Cache-Control": "no-store" } });
       }
+      if (dtRunning) {
+        await dtRunning;
+        const fresh = await (await hub.fetch(request)).json();
+        Object.assign(data, fresh);
+      }
       data.stats.relayError = relayError;
+      data.stats.finlandError = dtError;
       return Response.json(data, { headers: { "Cache-Control": "no-store" } });
     }
     return env.ASSETS.fetch(request);
