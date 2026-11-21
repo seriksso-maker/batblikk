@@ -290,7 +290,11 @@ async function aisstreamOnce(env, hub) {
     ws = resp.webSocket;
     if (!ws) { asError = "aisstream svarte " + resp.status; return; }
     ws.accept();
+    let raw = 0, closed = null;
+    ws.addEventListener("close", (ev) => { closed = `lukket ${ev.code} ${ev.reason || ""}`.trim(); });
+    ws.addEventListener("error", () => { closed = closed || "feil på forbindelsen"; });
     ws.addEventListener("message", (ev) => {
+      raw++;
       try {
         const d = JSON.parse(typeof ev.data === "string" ? ev.data : new TextDecoder().decode(ev.data));
         if (d.error) { asError = String(d.error); return; }
@@ -317,7 +321,8 @@ async function aisstreamOnce(env, hub) {
     ws.send(JSON.stringify({ APIKey: env.AISSTREAM_KEY, BoundingBoxes: AS_BOXES,
       FilterMessageTypes: ["PositionReport", "StandardClassBPositionReport", "ExtendedClassBPositionReport", "ShipStaticData"] }));
     await new Promise((r) => setTimeout(r, AS_READ_MS));
-    if (msgs.length) asError = null; else if (!asError) asError = "ingen data fra aisstream på " + AS_READ_MS / 1000 + " s";
+    if (msgs.length) asError = null;
+    else if (!asError) asError = `ingen data fra aisstream på ${AS_READ_MS / 1000} s (meldinger ${raw}${closed ? ", " + closed : ""})`;
   } catch (e) {
     asError = String((e && e.message) || e);
   } finally {
