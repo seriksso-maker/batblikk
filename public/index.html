@@ -2,105 +2,230 @@
 <html lang="no">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0a1017">
 <title>Båtblikk</title>
 <link rel="stylesheet" href="vendor/leaflet/leaflet.css">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600&family=Barlow+Condensed:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
 <style>
-  :root { --bg:#fff; --fg:#14202b; --muted:#5b6b78; --line:#dde3e8; --panel:rgba(255,255,255,.95); }
-  @media (prefers-color-scheme: dark) { :root { --bg:#0f171e; --fg:#e6edf3; --muted:#93a3b1; --line:#26333e; --panel:rgba(18,27,35,.95); } }
-  html, body { margin:0; height:100%; background:var(--bg); color:var(--fg); font:14px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif; }
-  #map { position:absolute; inset:0; }
-  #panel { position:absolute; z-index:1000; top:12px; left:12px; width:260px; max-width:calc(100vw - 48px);
-           background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:12px 14px; box-shadow:0 2px 12px rgba(0,0,0,.15); }
-  h1 { font-size:17px; margin:0 0 2px; }
-  #status { color:var(--muted); font-size:12px; margin-bottom:10px; }
-  #status b { color:var(--fg); }
-  .dot { display:inline-block; width:8px; height:8px; border-radius:50%; background:#c33; margin-right:5px; vertical-align:middle; }
-  .dot.on { background:#2a9d4b; }
-  input[type=search] { width:100%; box-sizing:border-box; padding:6px 8px; border:1px solid var(--line); border-radius:6px; background:var(--bg); color:var(--fg); margin-bottom:8px; }
-  .cats label { display:flex; align-items:center; gap:6px; padding:2px 0; cursor:pointer; }
-  .cats .sw { width:18px; height:18px; flex:none; display:inline-flex; align-items:center; justify-content:center; }
-  .cats .sw svg { overflow:visible; }
-  #tracking { display:none; margin:0 0 8px; padding:6px 8px; border-radius:6px; background:rgba(230,57,70,.12); font-size:12px; align-items:center; gap:6px; }
-  #tracking.on { display:flex; }
-  #tracking button { margin-left:auto; border:0; background:none; color:var(--fg); cursor:pointer; font-size:14px; }
-  .acts { display:flex; gap:6px; margin-top:8px; flex-wrap:wrap; }
-  .acts button { font:inherit; font-size:12px; padding:4px 9px; border-radius:5px; border:1px solid #c9d3da; background:#f3f6f8; color:#14202b; cursor:pointer; }
-  .acts button.on { background:#e63946; border-color:#e63946; color:#fff; }
-  .cats .n { margin-left:auto; color:var(--muted); font-variant-numeric:tabular-nums; }
-  #toggle { display:none; }
-  @media (max-width:600px) { #panel.collapsed .body { display:none; } #toggle { display:inline; float:right; border:0; background:none; color:var(--fg); font-size:16px; } }
-  .ship-icon { background:none; border:0; }
-  .leaflet-popup-content { font-size:13px; width:240px; }
-  .photo { display:block; margin:-2px 0 8px; }
-  .photo img { display:block; width:100%; height:150px; object-fit:cover; border-radius:6px; background:#e6ebef; }
-  .photo.none { font-size:12px; color:#5b6b78; padding:8px 10px; background:rgba(127,140,150,.12); border-radius:6px; }
-  .credit { font-size:10.5px; color:#7c8a96; margin:-5px 0 6px; }
-  .leaflet-popup-content table td:first-child { color:#5b6b78; padding-right:8px; }
+  :root{
+    --bg:#0a1017; --panel:rgba(12,19,27,.94); --line:#1e2b39; --fg:#dbe6ef; --mute:#7b8fa3;
+    --amber:#ffb454; --cyan:#59d0ff; --ok:#4fd18b; --bad:#ff6b6b; --red:#ff5a5f;
+    --ui:'Barlow',system-ui,sans-serif; --cond:'Barlow Condensed','Barlow',sans-serif; --mono:'IBM Plex Mono',ui-monospace,monospace;
+  }
+  html,body{height:100%;margin:0;background:var(--bg);color:var(--fg);font:14px/1.4 var(--ui);overflow:hidden}
+  #map{position:absolute;inset:0;background:var(--bg)}
+  .leaflet-container{font-family:var(--ui)}
+  .leaflet-control-attribution{background:rgba(10,16,23,.7)!important;color:var(--mute)!important;font-size:10px}
+  .leaflet-control-attribution a{color:var(--mute)!important}
+  .leaflet-bar a{background:var(--panel)!important;color:var(--fg)!important;border-color:var(--line)!important}
+  button{font:500 14px var(--ui);color:var(--fg);background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:8px 10px;min-height:36px;box-sizing:border-box;cursor:pointer}
+  button:hover{border-color:var(--mute)}
+  :focus-visible{outline:2px solid var(--cyan);outline-offset:1px}
+  a{color:var(--cyan)}
+
+  /* Søk øverst */
+  .top{position:absolute;z-index:500;top:0;left:0;padding:calc(8px + env(safe-area-inset-top)) 8px 0;width:min(100%,440px);box-sizing:border-box}
+  .sbox{position:relative}
+  .sbox svg{position:absolute;left:11px;top:50%;transform:translateY(-50%);color:#8a98a6;pointer-events:none}
+  .sbox input{width:100%;box-sizing:border-box;padding:0 12px 0 38px;min-height:40px;background:#eef1f3;color:#22303c;border:0;border-radius:8px;font:500 15px var(--ui);box-shadow:0 1px 6px rgba(0,0,0,.4)}
+  .sbox input::placeholder{color:#7d8b97}
+  #qRes{margin-top:6px;background:var(--panel);border:1px solid var(--line);border-radius:8px;max-height:50vh;overflow:auto}
+  #qRes[hidden]{display:none}
+  #qRes button{display:flex;width:100%;align-items:center;gap:10px;border:0;border-bottom:1px solid var(--line);border-radius:0;background:none;text-align:left;padding:8px 12px}
+  #qRes button:last-child{border-bottom:0}
+  #qRes .nm{font:600 15px var(--cond);letter-spacing:.02em}
+  #qRes .sub{color:var(--mute);font-size:12px}
+  #qRes .none{padding:10px 12px;color:var(--mute)}
+
+  /* Meny nederst */
+  .dock{position:absolute;z-index:500;left:50%;transform:translateX(-50%);bottom:calc(10px + env(safe-area-inset-bottom));width:min(calc(100% - 20px),440px);display:flex;justify-content:space-around;padding:6px 6px 4px;background:rgba(18,26,34,.9);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);border:1px solid rgba(255,255,255,.12);border-radius:26px;box-sizing:border-box}
+  .dock button{display:flex;flex-direction:column;align-items:center;gap:2px;border:0;background:none;color:#e8eef3;font:500 12px var(--ui);padding:3px 6px;min-height:0;flex:1}
+  .dock button.on{color:var(--amber)}
+  .dock svg{display:block;width:26px;height:26px}
+
+  /* Ark som glir opp */
+  .sheet{position:absolute;z-index:550;left:50%;transform:translateX(-50%);bottom:calc(80px + env(safe-area-inset-bottom));width:min(calc(100% - 20px),440px);max-height:min(60%,520px);overflow:auto;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:12px 14px 14px;box-sizing:border-box;animation:up .18s ease-out}
+  @keyframes up{from{opacity:0;transform:translate(-50%,12px)}to{opacity:1;transform:translate(-50%,0)}}
+  .sheet[hidden]{display:none}
+  .sheet h3{margin:0 0 6px;font:600 17px var(--ui)}
+  .sheet label.h{display:block;color:var(--mute);font-size:11.5px;text-transform:uppercase;letter-spacing:.08em;margin:12px 0 6px}
+  .chips2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .chips2 button{padding:9px 8px;text-align:center}
+  .chips2 button.on{border-color:var(--amber);color:var(--amber)}
+  .chips2.types button{display:flex;align-items:center;gap:8px;text-align:left}
+  .chips2.types button:not(.on){opacity:.5}
+  .chips2.types .n{margin-left:auto;color:var(--mute);font:12px var(--mono)}
+  .chips2.types svg{flex:none;overflow:visible}
+  .row2{display:flex;gap:8px;margin-top:10px}
+  .row2 button{flex:1}
+  .tog{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 0;border-bottom:1px solid var(--line);cursor:pointer}
+  .tog:last-of-type{border-bottom:0}
+  .tog input{width:20px;height:20px;accent-color:var(--amber)}
+  .note{color:var(--mute);font-size:12.5px;margin:8px 0 0}
+
+  /* Detaljpanel */
+  aside{position:absolute;z-index:600;top:12px;right:12px;width:330px;max-height:calc(100% - 24px);overflow:auto;background:var(--panel);border:1px solid var(--line);border-radius:10px}
+  aside[hidden]{display:none}
+  .pic{position:relative;height:170px;background:#111b25;display:flex;align-items:center;justify-content:center;color:var(--mute);font-size:12.5px;text-align:center}
+  .pic img{width:100%;height:100%;object-fit:cover;display:block}
+  .pic .cr{position:absolute;right:6px;bottom:4px;font-size:10px;color:#fff;text-shadow:0 1px 2px #000}
+  .x{position:absolute;top:8px;right:8px;z-index:2;width:32px;height:32px;min-height:0;padding:0;border-radius:50%;background:rgba(0,0,0,.55);border:0;color:#fff;font-size:15px}
+  .hd{padding:10px 14px 8px;border-bottom:1px solid var(--line)}
+  .hd .nm{font:700 24px/1.1 var(--cond);letter-spacing:.02em}
+  .hd .ty{display:flex;align-items:center;gap:6px;color:var(--mute);margin-top:3px}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--line)}
+  .grid div{background:var(--panel);padding:8px 14px}
+  .grid .k{display:block;color:var(--mute);font-size:11px;text-transform:uppercase;letter-spacing:.07em}
+  .grid .v{font:500 14px var(--mono)}
+  .grid .w{grid-column:1/-1}
+  .acts{display:flex;gap:1px;background:var(--line);border-top:1px solid var(--line)}
+  .acts button{flex:1;border:0;border-radius:0;background:var(--panel);padding:11px 4px;color:var(--fg);font-weight:600}
+  .acts button.on{color:var(--red)}
+  .acts button.on.f{color:var(--amber)}
+
+  /* Status nede til venstre */
+  .status{position:absolute;z-index:500;left:10px;bottom:calc(84px + env(safe-area-inset-bottom));padding:6px 10px;background:var(--panel);border:1px solid var(--line);border-radius:6px;font:12px var(--mono);display:flex;align-items:center;gap:8px;max-width:calc(100% - 80px)}
+  #dot{width:8px;height:8px;border-radius:50%;background:var(--mute);flex:none}
+  #dot.ok{background:var(--ok)} #dot.load{background:var(--amber)} #dot.err{background:var(--bad)}
+  #trk{display:none;color:var(--red);cursor:pointer}
+  #trk.on{display:inline}
+
+  .ship-icon{background:none;border:0}
+  .ship-icon svg{overflow:visible}
+  .leaflet-tooltip.lbl{background:rgba(10,16,23,.75);color:#e8eef3;border:0;box-shadow:none;font:500 11px var(--cond);padding:0 4px;letter-spacing:.02em}
+  .leaflet-tooltip.lbl::before{display:none}
+
+  @media (max-width:640px){
+    aside{top:auto;bottom:0;right:0;left:0;width:auto;max-height:62%;border-radius:14px 14px 0 0;z-index:650}
+    .pic{height:140px}
+    .status{padding:4px 8px;font-size:11px;bottom:calc(72px + env(safe-area-inset-bottom))}
+    .dock button{font-size:10.5px}
+    .dock svg{width:22px;height:22px}
+    .sheet{bottom:calc(68px + env(safe-area-inset-bottom))}
+    .leaflet-control-zoom{display:none}
+  }
+  @media (min-width:641px){
+    .leaflet-bottom.leaflet-right .leaflet-control-zoom{margin-bottom:24px}
+  }
 </style>
 </head>
 <body>
 <div id="map"></div>
-<div id="panel">
-  <button id="toggle" aria-label="Vis/skjul">☰</button>
-  <h1>Båtblikk</h1>
-  <div id="status"><span class="dot"></span>Kobler til …</div>
-  <div id="tracking"><span>📍</span><span id="tracking-name"></span><button id="tracking-stop" aria-label="Slutt å spore">✕</button></div>
-  <div class="body">
-    <input id="q" type="search" placeholder="Søk på navn eller MMSI">
-    <div class="cats" id="cats"></div>
+
+<div class="top">
+  <div class="sbox">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
+    <input id="q" type="search" placeholder="Søk båt, MMSI eller kallesignal" autocomplete="off">
   </div>
+  <div id="qRes" hidden></div>
 </div>
+
+<div class="status"><span id="dot" class="load"></span><span id="stxt">Kobler til …</span><span id="trk" title="Slutt å spore"></span></div>
+
+<section class="sheet" id="shMap" hidden>
+  <h3>Kart</h3>
+  <label class="h">Karttype</label>
+  <div class="chips2" id="baseChips"></div>
+  <label class="h">Lag oppå kartet</label>
+  <div class="chips2" id="ovChips"></div>
+  <label class="h">Hopp til område</label>
+  <div class="chips2" id="regChips"></div>
+</section>
+
+<section class="sheet" id="shFilter" hidden>
+  <h3>Filter</h3>
+  <label class="h">Båttyper</label>
+  <div class="chips2 types" id="typeChips"></div>
+  <div class="row2"><button type="button" id="allTypes">Vis alle typer</button><button type="button" id="movingBtn">Bare båter i fart</button></div>
+</section>
+
+<section class="sheet" id="shSet" hidden>
+  <h3>Innstillinger</h3>
+  <label class="tog">Vis båtnavn på kartet (når du zoomer inn)<input type="checkbox" id="namesChk"></label>
+  <label class="tog">Ruten følger valgt båt<input type="checkbox" id="followChk"></label>
+  <div class="row2"><button type="button" id="locBtn">Gå til min posisjon</button></div>
+  <label class="h">Kilder</label>
+  <p class="note">AIS-data fra Kystverket (NLOD) og Digitraffic/Fintraffic, Finland (CC BY 4.0). Bilder fra Wikimedia Commons. Kart fra OpenStreetMap, Kartverket, Esri, CARTO og OpenSeaMap.</p>
+  <p class="note" id="srcStat"></p>
+</section>
+
+<nav class="dock">
+  <button type="button" data-sheet="q"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>Søk</button>
+  <button type="button" data-sheet="shMap"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 4L3 6v14l6-2 6 2 6-2V4l-6 2-6-2z"/><path d="M9 4v14M15 6v14"/></svg>Kart</button>
+  <button type="button" data-sheet="shFilter"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 5h18l-7 8v6l-4-2v-4z"/></svg>Filter</button>
+  <button type="button" data-sheet="shSet"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>Innstillinger</button>
+</nav>
+
+<aside id="panel" hidden></aside>
+
 <script src="vendor/leaflet/leaflet.js"></script>
 <script>
 const CATS = [
-  { id:"passenger", label:"Passasjer / ferje", color:"#1f77d0", test:t=>t>=60&&t<70 },
-  { id:"cargo",     label:"Last",              color:"#2a9d4b", test:t=>t>=70&&t<80 },
-  { id:"tanker",    label:"Tank",              color:"#d0392b", test:t=>t>=80&&t<90 },
-  { id:"fishing",   label:"Fiske",             color:"#e08a00", test:t=>t===30 },
-  { id:"leisure",   label:"Fritid / seil",     color:"#9b51c9", test:t=>t===36||t===37 },
-  { id:"service",   label:"Slep, los, redning", color:"#11a3a3", test:t=>(t>=31&&t<=35)||(t>=50&&t<60) },
-  { id:"fast",      label:"Hurtigbåt",         color:"#e0489a", test:t=>t>=40&&t<50 },
-  { id:"other",     label:"Annet / ukjent",    color:"#7c8a96", test:()=>true },
+  { id:"passenger", label:"Passasjer / ferje", color:"#3d9bff", test:t=>t>=60&&t<70 },
+  { id:"cargo",     label:"Last",              color:"#3ecf6e", test:t=>t>=70&&t<80 },
+  { id:"tanker",    label:"Tank",              color:"#ff5a4f", test:t=>t>=80&&t<90 },
+  { id:"fishing",   label:"Fiske",             color:"#ffa630", test:t=>t===30 },
+  { id:"leisure",   label:"Fritid / seil",     color:"#b77cff", test:t=>t===36||t===37 },
+  { id:"service",   label:"Slep, los, redning", color:"#2fd0d0", test:t=>(t>=31&&t<=35)||(t>=50&&t<60) },
+  { id:"fast",      label:"Hurtigbåt",         color:"#ff6fb5", test:t=>t>=40&&t<50 },
+  { id:"other",     label:"Annet / ukjent",    color:"#9aa8b5", test:()=>true },
 ];
 const TYPE_NAMES = {30:"Fiskefartøy",31:"Slep",32:"Slep",33:"Mudring",34:"Dykking",35:"Militær",36:"Seilbåt",37:"Fritidsbåt",50:"Losbåt",51:"Redning",52:"Slepebåt",53:"Havnefartøy",54:"Miljøvern",55:"Politi",58:"Ambulanse"};
 const STATUS = ["Under gange (motor)","Til ankers","Ikke manøvrerbar","Begrenset manøvrering","Begrenset av dypgang","Fortøyd","På grunn","Fiske","Under seil"];
-
 const catOf = t => CATS.find(c => t != null && c.test(t)) || CATS[CATS.length-1];
-const typeName = t => t==null ? "Ukjent" : TYPE_NAMES[t] || (t>=40&&t<50?"Hurtigbåt":t>=60&&t<70?"Passasjer":t>=70&&t<80?"Lasteskip":t>=80&&t<90?"Tankskip":`Type ${t}`);
+const typeName = t => t==null ? "Ukjent type" : TYPE_NAMES[t] || (t>=40&&t<50?"Hurtigbåt":t>=60&&t<70?"Passasjerskip":t>=70&&t<80?"Lasteskip":t>=80&&t<90?"Tankskip":`Type ${t}`);
+const $ = id => document.getElementById(id);
+const store = { get(k) { try { return localStorage.getItem(k); } catch { return null; } }, set(k, v) { try { localStorage.setItem(k, v); } catch {} } };
+const esc = v => String(v).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const ago = ms => { const s = Math.max(0, Math.round(ms/1000)); return s < 60 ? `${s} s siden` : s < 3600 ? `${Math.round(s/60)} min siden` : `${Math.round(s/3600)} t siden`; };
 
-const map = L.map("map", { zoomControl:false }).setView([64.5, 12], 5);
-// ---- Kartvalg ----
+const map = L.map("map", { zoomControl:false, worldCopyJump:true }).setView([64.5, 12], 5);
+L.control.zoom({ position:"bottomright" }).addTo(map);
+map.attributionControl.setPrefix(false);
+map.attributionControl.addAttribution("AIS: Kystverket, Digitraffic");
+
+// ---- Kart ----
 const KV = "https://cache.kartverket.no/v1/wmts/1.0.0/";
 const kvAttr = '&copy; <a href="https://www.kartverket.no/">Kartverket</a>';
 const BASES = {
-  "Vanlig kart (OpenStreetMap)": L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 19, attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>' }),
-  "Sjøkart (Kartverket)": L.tileLayer(KV + "sjokartraster/default/webmercator/{z}/{y}/{x}.png", { maxZoom: 18, attribution: kvAttr }),
-  "Topografisk (Kartverket)": L.tileLayer(KV + "topo/default/webmercator/{z}/{y}/{x}.png", { maxZoom: 18, attribution: kvAttr }),
-  "Gråtone (Kartverket)": L.tileLayer(KV + "topograatone/default/webmercator/{z}/{y}/{x}.png", { maxZoom: 18, attribution: kvAttr }),
-  "Flyfoto (Esri)": L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}", { maxZoom: 18, attribution: "Bilder &copy; Esri, Maxar, Earthstar Geographics" }),
-  "Mørkt kart": L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png", { maxZoom: 19, subdomains: "abcd", attribution: '&copy; OpenStreetMap &copy; <a href="https://carto.com/attributions">CARTO</a>' }),
+  dark: { label:"Mørkt", layer:L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png", { maxZoom:19, subdomains:"abcd", attribution:'&copy; OpenStreetMap &copy; <a href="https://carto.com/attributions">CARTO</a>' }) },
+  osm:  { label:"Vanlig kart", layer:L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom:19, attribution:'&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>' }) },
+  sjo:  { label:"Sjøkart", layer:L.tileLayer(KV + "sjokartraster/default/webmercator/{z}/{y}/{x}.png", { maxZoom:18, attribution:kvAttr }) },
+  topo: { label:"Topografisk", layer:L.tileLayer(KV + "topo/default/webmercator/{z}/{y}/{x}.png", { maxZoom:18, attribution:kvAttr }) },
+  graa: { label:"Gråtone", layer:L.tileLayer(KV + "topograatone/default/webmercator/{z}/{y}/{x}.png", { maxZoom:18, attribution:kvAttr }) },
+  sat:  { label:"Flyfoto", layer:L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}", { maxZoom:18, attribution:"Bilder &copy; Esri, Maxar" }) },
 };
 const OVERLAYS = {
-  "Sjømerker og fyr (OpenSeaMap)": L.tileLayer("https://tiles.openseamap.org/seamark/{z}/{x}/{y}.png", { maxZoom: 18, attribution: '&copy; <a href="https://www.openseamap.org">OpenSeaMap</a>' }),
+  seamark: { label:"Sjømerker og fyr", layer:L.tileLayer("https://tiles.openseamap.org/seamark/{z}/{x}/{y}.png", { maxZoom:18, attribution:'&copy; <a href="https://www.openseamap.org">OpenSeaMap</a>' }) },
 };
-const store = { get(k) { try { return localStorage.getItem(k); } catch { return null; } }, set(k, v) { try { localStorage.setItem(k, v); } catch {} } };
-const savedBase = store.get("batblikk.base");
-(BASES[savedBase] || BASES["Vanlig kart (OpenStreetMap)"]).addTo(map);
-for (const name of JSON.parse(store.get("batblikk.overlays") || "[]")) if (OVERLAYS[name]) OVERLAYS[name].addTo(map);
-L.control.layers(BASES, OVERLAYS, { position: "topright" }).addTo(map);
-map.attributionControl.addAttribution("AIS: Kystverket (NLOD), Digitraffic/Fintraffic (CC BY 4.0)");
-map.on("baselayerchange", e => store.set("batblikk.base", e.name));
-const saveOverlays = () => store.set("batblikk.overlays", JSON.stringify(Object.keys(OVERLAYS).filter(n => map.hasLayer(OVERLAYS[n]))));
-map.on("overlayadd overlayremove", saveOverlays);
-L.control.zoom({ position:"bottomright" }).addTo(map);
+const REGIONS = [
+  ["Hele Norge", [[57.8,4],[71.3,31.5]]], ["Oslofjorden", [[58.9,9.9],[59.95,11.1]]],
+  ["Bergen", [[60.15,4.7],[60.6,5.6]]], ["Stavanger", [[58.75,5.3],[59.2,6.1]]],
+  ["Ålesund", [[62.3,5.6],[62.65,6.6]]], ["Trondheim", [[63.3,9.6],[63.75,10.9]]],
+  ["Lofoten", [[67.8,12.5],[68.6,15.8]]], ["Tromsø", [[69.4,18.3],[69.9,19.6]]],
+  ["Skagerrak", [[57,7.5],[59.3,11.5]]], ["Østersjøen", [[54,13],[66,30]]],
+];
+let baseId = BASES[store.get("batblikk.base2")] ? store.get("batblikk.base2") : "dark";
+let ovOn = new Set((() => { try { return JSON.parse(store.get("batblikk.ov2") || "[]"); } catch { return []; } })().filter(k => OVERLAYS[k]));
+function applyMap() {
+  for (const [k, b] of Object.entries(BASES)) k === baseId ? b.layer.addTo(map) : b.layer.remove();
+  for (const [k, o] of Object.entries(OVERLAYS)) ovOn.has(k) ? o.layer.addTo(map) : o.layer.remove();
+  $("baseChips").innerHTML = Object.entries(BASES).map(([k, b]) => `<button type="button" data-base="${k}" class="${k === baseId ? "on" : ""}">${b.label}</button>`).join("");
+  $("ovChips").innerHTML = Object.entries(OVERLAYS).map(([k, o]) => `<button type="button" data-ov="${k}" class="${ovOn.has(k) ? "on" : ""}">${o.label}</button>`).join("");
+  store.set("batblikk.base2", baseId); store.set("batblikk.ov2", JSON.stringify([...ovOn]));
+}
+$("regChips").innerHTML = REGIONS.map(([n], i) => `<button type="button" data-reg="${i}">${n}</button>`).join("");
+$("shMap").addEventListener("click", e => {
+  const b = e.target.closest("button"); if (!b) return;
+  if (b.dataset.base) { baseId = b.dataset.base; applyMap(); }
+  else if (b.dataset.ov) { const k = b.dataset.ov; ovOn.has(k) ? ovOn.delete(k) : ovOn.add(k); applyMap(); }
+  else if (b.dataset.reg) { map.flyToBounds(REGIONS[+b.dataset.reg][1], { duration:.8 }); closeSheets(); }
+});
+applyMap();
 
-const enabled = new Set(CATS.map(c => c.id));
-const markers = new Map(); // mmsi -> { marker, key }
-let ships = [];
-let query = "";
-
-// Ovenfra-silhuetter, baugen peker opp (roteres etter kurs). viewBox -12..12.
+// ---- Ikoner (ovenfra, baugen opp) ----
 const SHAPES = {
   cargo:   `<path d="M0,-11 L4,-6 L4,10 L-4,10 L-4,-6 Z"/><g fill="#fff" fill-opacity=".55" stroke="none"><rect x="-2.6" y="-4.5" width="5.2" height="3.2"/><rect x="-2.6" y="-0.4" width="5.2" height="3.2"/><rect x="-2.6" y="3.7" width="5.2" height="3.2"/></g>`,
   tanker:  `<path d="M0,-11 C3.5,-9 4,-6 4,-4 L4,9 Q4,10.5 2.5,10.5 L-2.5,10.5 Q-4,10.5 -4,9 L-4,-4 C-4,-6 -3.5,-9 0,-11 Z"/><g fill="#fff" fill-opacity=".6" stroke="none"><circle cy="-3" r="1.7"/><circle cy="1.5" r="1.7"/><circle cy="6" r="1.7"/></g>`,
@@ -112,87 +237,178 @@ const SHAPES = {
   other:   `<path d="M0,-9 L5,8 L0,5 L-5,8 Z"/>`,
 };
 function shipSvg(catId, color, size, rot, faded) {
-  return `<svg width="${size}" height="${size}" viewBox="-12 -12 24 24" style="transform:rotate(${rot}deg) scaleX(1.25)${faded ? ";opacity:.6" : ""}"><g fill="${color}" stroke="#fff" stroke-width="1.1" stroke-linejoin="round">${SHAPES[catId]}</g></svg>`;
+  return `<svg width="${size}" height="${size}" viewBox="-12 -12 24 24" style="transform:rotate(${rot}deg) scaleX(1.25)${faded ? ";opacity:.6" : ""}"><g fill="${color}" stroke="#0a1017" stroke-width="1" stroke-linejoin="round">${SHAPES[catId]}</g></svg>`;
 }
+
+// ---- Tilstand ----
+const enabled = new Set((() => { try { const a = JSON.parse(store.get("batblikk.types")); return Array.isArray(a) ? a : null; } catch { return null; } })() || CATS.map(c => c.id));
+let movingOnly = store.get("batblikk.moving") === "1";
+let showNames = store.get("batblikk.names") === "1";
+const markers = new Map(); // mmsi -> { marker, key, ship }
+let ships = [], byMmsi = new Map(), lastNow = Date.now();
+let selected = null; // mmsi
+let tracking = null; // { mmsi, name, line, follow }
+const isMoving = s => s.sog != null && s.sog > 0.5;
+
 function iconFor(s, cat) {
-  const moving = s.sog != null && s.sog > 0.5;
-  const hdg = s.heading ?? (moving ? s.cog : null);
-  const rot = Math.round(hdg ?? 0);
-  const tracked = tracking && tracking.mmsi === s.mmsi;
+  const moving = isMoving(s);
+  const rot = Math.round(s.heading ?? (moving ? s.cog : null) ?? 0);
+  const trk = tracking && tracking.mmsi === s.mmsi, sel = selected === s.mmsi;
   const z = map.getZoom(), zb = z <= 6 ? 0 : z <= 9 ? 1 : 2;
-  const size = [[20, 16], [30, 24], [40, 32]][zb][moving ? 0 : 1] + (tracked ? 8 : 0);
-  const color = tracked ? "#e63946" : cat.color;
-  return { key: `${cat.id}|${moving}|${Math.round(rot/5)}|${tracked}|${zb}`,
-    icon: L.divIcon({ className:"ship-icon", html:shipSvg(cat.id, color, size, rot, !moving && !tracked), iconSize:[size,size], iconAnchor:[size/2,size/2] }) };
+  const size = [[20,16],[30,24],[40,32]][zb][moving ? 0 : 1] + (trk || sel ? 8 : 0);
+  const color = trk ? "#ff5a5f" : sel ? "#ffb454" : cat.color;
+  return { key:`${cat.id}|${moving}|${Math.round(rot/5)}|${trk}|${sel}|${zb}`,
+    icon:L.divIcon({ className:"ship-icon", html:shipSvg(cat.id, color, size, rot, !moving && !trk && !sel), iconSize:[size,size], iconAnchor:[size/2,size/2] }) };
 }
 
-function esc(v) { return String(v).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
-function ago(ms) { const s = Math.round(ms/1000); return s < 60 ? `${s} s siden` : `${Math.round(s/60)} min siden`; }
-
-function popupHtml(s, now) {
-  const rows = [
-    ["Type", typeName(s.shipType)],
-    ["MMSI", s.mmsi],
-    s.imo && ["IMO", s.imo],
-    s.callsign && ["Kallesignal", s.callsign],
-    s.sog != null && ["Fart", `${s.sog.toFixed(1)} knop`],
-    s.cog != null && ["Kurs", `${Math.round(s.cog)}°`],
-    s.status != null && STATUS[s.status] && ["Status", STATUS[s.status]],
-    s.destination && ["Destinasjon", s.destination],
-    ["Sist sett", ago(now - s.seen)],
-    ["Kilde", s.src === "fi" ? "Digitraffic (Finland)" : "Kystverket"],
-  ].filter(Boolean);
-  const on = tracking && tracking.mmsi === s.mmsi;
-  const acts = `<div class="acts"><button type="button" data-act="track" data-mmsi="${s.mmsi}" class="${on ? "on" : ""}">${on ? "Slutt å spore" : "Spor ruten"}</button>${on ? `<button type="button" data-act="follow" class="${tracking.follow ? "on" : ""}">${tracking.follow ? "Følger båten" : "Følg båten"}</button>` : ""}</div>`;
-  return `${photoHtml(s)}<b>${esc(s.name || "Ukjent navn")}</b><table>${rows.map(([k,v]) => `<tr><td>${k}</td><td>${esc(v)}</td></tr>`).join("")}</table>${acts}`;
-}
-
-function matches(s) {
-  if (!query) return true;
-  return (s.name || "").toLowerCase().includes(query) || String(s.mmsi).includes(query);
-}
-
-function render(now) {
+function render() {
   const counts = Object.fromEntries(CATS.map(c => [c.id, 0]));
   const seen = new Set();
+  const labels = showNames && map.getZoom() >= 11;
   let shown = 0;
   for (const s of ships) {
     const cat = catOf(s.shipType);
     counts[cat.id]++;
-    const isTracked = tracking && tracking.mmsi === s.mmsi;
-    if (!isTracked && (!enabled.has(cat.id) || !matches(s))) continue;
+    const special = (tracking && tracking.mmsi === s.mmsi) || selected === s.mmsi;
+    if (!special && (!enabled.has(cat.id) || (movingOnly && !isMoving(s)))) continue;
     seen.add(s.mmsi); shown++;
     const { key, icon } = iconFor(s, cat);
     let m = markers.get(s.mmsi);
     if (!m) {
-      const marker = L.marker([s.lat, s.lon], { icon, title: s.name || String(s.mmsi) }).addTo(map);
-      marker.bindPopup("");
-      m = { marker, key }; markers.set(s.mmsi, m);
+      const marker = L.marker([s.lat, s.lon], { icon, title:s.name || String(s.mmsi), riseOnHover:true }).addTo(map);
+      marker.on("click", () => select(s.mmsi));
+      m = { marker, key, lbl:false }; markers.set(s.mmsi, m);
     } else {
       m.marker.setLatLng([s.lat, s.lon]);
       if (m.key !== key) { m.marker.setIcon(icon); m.key = key; }
     }
+    if (special) m.marker.setZIndexOffset(1000);
+    const wantLbl = labels && !!s.name;
+    if (wantLbl && !m.lbl) { m.marker.bindTooltip(s.name, { permanent:true, direction:"right", offset:[10,0], className:"lbl" }); m.lbl = true; }
+    else if (!wantLbl && m.lbl) { m.marker.unbindTooltip(); m.lbl = false; }
     m.ship = s;
-    if (m.marker.isPopupOpen()) m.marker.setPopupContent(popupHtml(s, now));
   }
   for (const [mmsi, m] of markers) if (!seen.has(mmsi)) { m.marker.remove(); markers.delete(mmsi); }
-  for (const c of CATS) document.getElementById("n-" + c.id).textContent = counts[c.id];
+  renderTypeChips(counts);
   return shown;
 }
 
-map.on("popupopen", e => {
-  for (const m of markers.values()) if (m.marker === e.popup._source) {
-    e.popup.setContent(popupHtml(m.ship, Date.now()));
-    findPhoto(m.ship).then(() => { if (m.marker.isPopupOpen()) m.marker.setPopupContent(popupHtml(m.ship, Date.now())); });
-  }
+// ---- Filter ----
+function renderTypeChips(counts) {
+  const html = CATS.map(c => `<button type="button" data-type="${c.id}" class="${enabled.has(c.id) ? "on" : ""}">${shipSvg(c.id, c.color, 18, 0, false)}<span>${c.label}</span><span class="n">${counts ? counts[c.id] : ""}</span></button>`).join("");
+  if ($("typeChips").innerHTML !== html) $("typeChips").innerHTML = html;
+  $("movingBtn").classList.toggle("on", movingOnly);
+  document.querySelector('[data-sheet="shFilter"]').classList.toggle("on", movingOnly || enabled.size < CATS.length || isOpen("shFilter"));
+}
+$("typeChips").addEventListener("click", e => {
+  const b = e.target.closest("[data-type]"); if (!b) return;
+  const id = b.dataset.type; enabled.has(id) ? enabled.delete(id) : enabled.add(id);
+  store.set("batblikk.types", JSON.stringify([...enabled])); render();
+});
+$("allTypes").onclick = () => { CATS.forEach(c => enabled.add(c.id)); movingOnly = false; store.set("batblikk.types", JSON.stringify([...enabled])); store.set("batblikk.moving", "0"); render(); };
+$("movingBtn").onclick = () => { movingOnly = !movingOnly; store.set("batblikk.moving", movingOnly ? "1" : "0"); render(); };
+
+// ---- Innstillinger ----
+$("namesChk").checked = showNames;
+$("namesChk").onchange = e => { showNames = e.target.checked; store.set("batblikk.names", showNames ? "1" : "0"); render(); };
+$("followChk").onchange = e => { if (tracking) { tracking.follow = e.target.checked; updateTrack(); showPanel(); } };
+$("locBtn").onclick = () => {
+  if (!navigator.geolocation) return;
+  navigator.geolocation.getCurrentPosition(p => { map.flyTo([p.coords.latitude, p.coords.longitude], 11); closeSheets(); }, () => { $("srcStat").textContent = "Fikk ikke tilgang til posisjonen din."; });
+};
+
+// ---- Ark og meny ----
+const isOpen = id => id !== "q" && !$(id).hidden;
+function closeSheets() {
+  for (const s of document.querySelectorAll(".sheet")) s.hidden = true;
+  for (const b of document.querySelectorAll(".dock button")) if (b.dataset.sheet !== "shFilter") b.classList.remove("on");
+  renderTypeChips();
+}
+document.querySelector(".dock").addEventListener("click", e => {
+  const b = e.target.closest("[data-sheet]"); if (!b) return;
+  const id = b.dataset.sheet;
+  if (id === "q") { closeSheets(); $("q").focus(); return; }
+  const wasOpen = !$(id).hidden;
+  closeSheets();
+  if (!wasOpen) { $(id).hidden = false; b.classList.add("on"); if (innerWidth <= 640) hidePanel(); }
+  renderTypeChips();
+});
+map.on("click", () => { closeSheets(); hidePanel(); $("qRes").hidden = true; });
+document.addEventListener("keydown", e => { if (e.key === "Escape") { closeSheets(); hidePanel(); $("qRes").hidden = true; } });
+
+// ---- Søk ----
+function doSearch() {
+  const q = $("q").value.trim().toLowerCase();
+  if (!q) { $("qRes").hidden = true; return; }
+  const hits = ships.filter(s => (s.name || "").toLowerCase().includes(q) || String(s.mmsi).includes(q) || (s.callsign || "").toLowerCase() === q || String(s.imo || "") === q)
+    .sort((a, b) => ((a.name || "").toLowerCase().startsWith(q) ? 0 : 1) - ((b.name || "").toLowerCase().startsWith(q) ? 0 : 1)).slice(0, 12);
+  $("qRes").innerHTML = hits.length ? hits.map(s => { const c = catOf(s.shipType);
+    return `<button type="button" data-mmsi="${s.mmsi}">${shipSvg(c.id, c.color, 20, 0, false)}<span><span class="nm">${esc(s.name || "Ukjent navn")}</span><br><span class="sub">${esc(typeName(s.shipType))} · ${s.mmsi}${s.sog != null ? ` · ${s.sog.toFixed(1)} kn` : ""}</span></span></button>`; }).join("")
+    : `<div class="none">Fant ingen båt som passer.</div>`;
+  $("qRes").hidden = false;
+}
+$("q").addEventListener("input", doSearch);
+$("q").addEventListener("focus", () => { closeSheets(); doSearch(); });
+$("q").addEventListener("keydown", e => { if (e.key === "Enter") { const b = $("qRes").querySelector("[data-mmsi]"); if (b) b.click(); } });
+$("qRes").addEventListener("click", e => {
+  const b = e.target.closest("[data-mmsi]"); if (!b) return;
+  const s = byMmsi.get(+b.dataset.mmsi); if (!s) return;
+  $("qRes").hidden = true; $("q").blur();
+  map.flyTo([s.lat, s.lon], Math.max(map.getZoom(), 12), { duration:.8 });
+  select(s.mmsi);
 });
 
-// ---- Bilder fra Wikimedia Commons, slått opp i Wikidata på MMSI eller IMO ----
-const photos = new Map(); // mmsi -> undefined (ikke sjekket) | "loading" | null (ingen) | { url, page }
+// ---- Detaljpanel ----
+function select(mmsi) {
+  selected = mmsi; closeSheets(); $("qRes").hidden = true;
+  const s = byMmsi.get(mmsi);
+  if (s) findPhoto(s).then(() => { if (selected === mmsi) showPanel(); });
+  showPanel(); render();
+}
+function hidePanel() { if (selected == null) return; selected = null; $("panel").hidden = true; render(); }
+function showPanel() {
+  const s = byMmsi.get(selected);
+  if (!s) { $("panel").hidden = true; return; }
+  const c = catOf(s.shipType);
+  const on = tracking && tracking.mmsi === s.mmsi;
+  const cell = (k, v, w) => v == null || v === "" ? "" : `<div class="${w ? "w" : ""}"><span class="k">${k}</span><span class="v">${esc(v)}</span></div>`;
+  $("panel").innerHTML = `
+    <button type="button" class="x" data-act="close" aria-label="Lukk">✕</button>
+    ${photoHtml(s)}
+    <div class="hd"><div class="nm">${esc(s.name || "Ukjent navn")}</div><div class="ty">${shipSvg(c.id, c.color, 16, 0, false)}${esc(typeName(s.shipType))}</div></div>
+    <div class="grid">
+      ${cell("Fart", s.sog != null ? `${s.sog.toFixed(1)} kn` : "–")}
+      ${cell("Kurs", s.cog != null ? `${Math.round(s.cog)}°` : "–")}
+      ${cell("MMSI", s.mmsi)}
+      ${cell("Kallesignal", s.callsign || "–")}
+      ${s.imo ? cell("IMO", s.imo) : ""}
+      ${cell("Sist sett", ago(lastNow - s.seen), !s.imo)}
+      ${cell("Destinasjon", s.destination, true)}
+      ${cell("Status", s.status != null ? STATUS[s.status] : null, true)}
+      ${cell("Posisjon", `${s.lat.toFixed(4)}° N, ${s.lon.toFixed(4)}° Ø`, true)}
+      ${cell("Kilde", s.src === "fi" ? "Digitraffic (Finland)" : "Kystverket", true)}
+    </div>
+    <div class="acts">
+      <button type="button" data-act="track" class="${on ? "on" : ""}">${on ? "Slutt å spore" : "Spor ruten"}</button>
+      ${on ? `<button type="button" data-act="follow" class="f ${tracking.follow ? "on" : ""}">${tracking.follow ? "Følger båten" : "Følg båten"}</button>` : ""}
+      <button type="button" data-act="zoom">Zoom inn</button>
+    </div>`;
+  $("panel").hidden = false;
+}
+$("panel").addEventListener("click", e => {
+  const b = e.target.closest("[data-act]"); if (!b) return;
+  const a = b.dataset.act, s = byMmsi.get(selected);
+  if (a === "close") hidePanel();
+  else if (a === "track" && s) { tracking && tracking.mmsi === s.mmsi ? stopTracking() : startTracking(s.mmsi); showPanel(); }
+  else if (a === "follow" && tracking) { tracking.follow = !tracking.follow; $("followChk").checked = tracking.follow; updateTrack(); showPanel(); }
+  else if (a === "zoom" && s) map.flyTo([s.lat, s.lon], 14, { duration:.8 });
+});
+
+// ---- Bilder (Wikidata → Wikimedia Commons) ----
+const photos = new Map();
 async function findPhoto(s) {
   const key = s.mmsi + ":" + (s.imo || "");
-  if (photos.has(key) && photos.get(key) !== "loading") return;
-  if (photos.get(key) === "loading") return;
+  if (photos.has(key)) return;
   photos.set(key, "loading");
   const ids = [`{ ?item wdt:P587 "${Number(s.mmsi)}" }`];
   if (s.imo) ids.push(`{ ?item wdt:P458 "${Number(s.imo)}" }`);
@@ -202,91 +418,73 @@ async function findPhoto(s) {
     const b = (await r.json()).results.bindings[0];
     if (!b) { photos.set(key, null); return; }
     const file = decodeURIComponent(b.img.value.split("/Special:FilePath/")[1]);
-    photos.set(key, {
-      url: "https://commons.wikimedia.org/wiki/Special:FilePath/" + encodeURIComponent(file) + "?width=360",
-      page: "https://commons.wikimedia.org/wiki/File:" + encodeURIComponent(file.replace(/ /g, "_")),
-    });
+    photos.set(key, { url:"https://commons.wikimedia.org/wiki/Special:FilePath/" + encodeURIComponent(file) + "?width=480",
+      page:"https://commons.wikimedia.org/wiki/File:" + encodeURIComponent(file.replace(/ /g, "_")) });
   } catch { photos.set(key, null); }
 }
 function photoHtml(s) {
   const p = photos.get(s.mmsi + ":" + (s.imo || ""));
-  if (p === undefined || p === "loading") return `<div class="photo none">Ser etter bilde …</div>`;
-  if (p === null) return `<div class="photo none">Fant ikke noe fritt bilde. <a href="https://www.marinetraffic.com/en/ais/details/ships/mmsi:${Number(s.mmsi)}" target="_blank" rel="noopener">Se på MarineTraffic</a></div>`;
-  return `<a class="photo" href="${p.page}" target="_blank" rel="noopener"><img src="${p.url}" alt="${esc(s.name || "Båt")}" loading="lazy"></a><div class="credit">Bilde: Wikimedia Commons</div>`;
+  if (p === undefined || p === "loading") return `<div class="pic">Ser etter bilde …</div>`;
+  if (p === null) return `<div class="pic">Fant ikke noe fritt bilde.<br><a href="https://www.marinetraffic.com/en/ais/details/ships/mmsi:${Number(s.mmsi)}" target="_blank" rel="noopener">Se på MarineTraffic</a></div>`;
+  return `<a class="pic" href="${p.page}" target="_blank" rel="noopener"><img src="${p.url}" alt="${esc(s.name || "Båt")}"><span class="cr">Wikimedia Commons</span></a>`;
 }
 
-document.getElementById("cats").innerHTML = CATS.map(c =>
-  `<label><input type="checkbox" data-id="${c.id}" checked><span class="sw">${shipSvg(c.id, c.color, 18, 0, false)}</span>${c.label}<span class="n" id="n-${c.id}">0</span></label>`).join("");
-document.getElementById("cats").addEventListener("change", e => {
-  const id = e.target.dataset.id; e.target.checked ? enabled.add(id) : enabled.delete(id); render(Date.now());
-});
-document.getElementById("q").addEventListener("input", e => { query = e.target.value.trim().toLowerCase(); render(Date.now()); });
-document.getElementById("toggle").addEventListener("click", () => document.getElementById("panel").classList.toggle("collapsed"));
-
 // ---- Sporing av rute ----
-let tracking = null; // { mmsi, name, line, follow }
 async function updateTrack() {
   if (!tracking) return;
   const t = tracking;
   try {
-    const pts = await fetch("api/track?mmsi=" + t.mmsi, { cache: "no-store" }).then(r => r.json());
+    const r = await fetch("api/track?mmsi=" + t.mmsi, { cache:"no-store" });
+    if (!r.ok) return;
+    const pts = await r.json();
     if (tracking !== t) return;
-    const s = ships.find(x => x.mmsi === t.mmsi);
-    const latlngs = pts.map(p => [p[0], p[1]]);
-    if (s) latlngs.push([s.lat, s.lon]);
-    t.line.setLatLngs(latlngs);
-    if (s && t.follow) map.panTo([s.lat, s.lon], { animate: true });
+    const s = byMmsi.get(t.mmsi);
+    const ll = pts.map(p => [p[0], p[1]]);
+    if (s) ll.push([s.lat, s.lon]);
+    t.line.setLatLngs(ll);
+    if (s && t.follow) map.panTo([s.lat, s.lon], { animate:true });
   } catch {}
 }
 function startTracking(mmsi) {
   stopTracking();
-  const s = ships.find(x => x.mmsi === mmsi);
-  tracking = { mmsi, name: (s && s.name) || String(mmsi), follow: false,
-    line: L.polyline([], { color:"#e63946", weight:3, opacity:.85, dashArray:"6 5" }).addTo(map) };
-  document.getElementById("tracking-name").textContent = "Sporer " + tracking.name;
-  document.getElementById("tracking").classList.add("on");
-  updateTrack(); render(Date.now());
+  const s = byMmsi.get(mmsi);
+  tracking = { mmsi, name:(s && s.name) || String(mmsi), follow:false,
+    line:L.polyline([], { color:"#ff5a5f", weight:3, opacity:.9, dashArray:"6 5" }).addTo(map) };
+  $("followChk").checked = false;
+  $("trk").textContent = "· sporer " + tracking.name + " ✕"; $("trk").classList.add("on");
+  updateTrack(); render();
 }
 function stopTracking() {
   if (!tracking) return;
   tracking.line.remove(); tracking = null;
-  document.getElementById("tracking").classList.remove("on");
-  render(Date.now());
+  $("trk").classList.remove("on"); render();
 }
-document.addEventListener("click", e => {
-  const b = e.target.closest("[data-act]");
-  if (!b) return;
-  if (b.dataset.act === "track") {
-    const mmsi = Number(b.dataset.mmsi);
-    tracking && tracking.mmsi === mmsi ? stopTracking() : startTracking(mmsi);
-  } else if (b.dataset.act === "follow" && tracking) {
-    tracking.follow = !tracking.follow; updateTrack();
-  }
-  const m = tracking ? markers.get(tracking.mmsi) : null;
-  for (const mk of markers.values()) if (mk.marker.isPopupOpen()) mk.marker.setPopupContent(popupHtml(mk.ship, Date.now()));
-});
-document.getElementById("tracking-stop").addEventListener("click", stopTracking);
-map.on("zoomend", () => render(Date.now()));
+$("trk").onclick = () => { stopTracking(); if (selected != null) showPanel(); };
+map.on("zoomend", render);
 
+// ---- Henting ----
 async function poll() {
-  const st = document.getElementById("status");
   try {
-    const r = await fetch("api/ships", { cache: "no-store" });
+    const r = await fetch("api/ships", { cache:"no-store" });
+    if (!r.ok) throw new Error(r.status);
     const data = await r.json();
-    ships = data.ships;
-    const shown = render(data.now);
+    ships = data.ships || []; byMmsi = new Map(ships.map(s => [s.mmsi, s])); lastNow = data.now || Date.now();
+    const shown = render();
     updateTrack();
-    const src = data.stats.source === "demo" ? "demo (simulert)" : "Kystverket + Finland";
-    const st2 = data.stats, fresh = Math.max(st2.lastData || 0, st2.lastRelay || 0);
-    // Grønn når data har kommet siste minutt. Rett etter oppstart: «henter».
-    const age = fresh ? data.now - fresh : Infinity;
-    const on = st2.connected || age < 60000;
-    const state = on ? "" : !fresh && !st2.relayError ? " · henter data …" : " · ingen data fra Kystverket nå, prøver igjen";
-    st.innerHTML = `<span class="dot ${on ? "on" : ""}"></span><b>${shown}</b> båter vist · ${src}${state}`;
-  } catch (e) {
-    st.innerHTML = `<span class="dot"></span>Får ikke kontakt med serveren`;
+    if (selected != null && !$("panel").hidden) showPanel();
+    if (!$("qRes").hidden) doSearch();
+    const st = data.stats || {}, fresh = Math.max(st.lastData || 0, st.lastRelay || 0);
+    const age = fresh ? lastNow - fresh : Infinity;
+    const on = st.connected || age < 60000;
+    $("dot").className = on ? "ok" : !fresh && !st.relayError ? "load" : "err";
+    $("stxt").textContent = `${shown} båter` + (on ? "" : !fresh && !st.relayError ? " · henter data …" : " · venter på Kystverket");
+    const nNo = ships.filter(s => s.src !== "fi").length;
+    $("srcStat").textContent = `Akkurat nå: ${nNo} båter fra Kystverket og ${ships.length - nNo} fra Finland.`;
+  } catch {
+    $("dot").className = "err"; $("stxt").textContent = "Får ikke kontakt med serveren";
   }
 }
+renderTypeChips();
 poll();
 setInterval(poll, 5000);
 </script>
