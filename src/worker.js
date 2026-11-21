@@ -167,6 +167,7 @@ export class AisHub extends DurableObject {
 const RELAY_READ_MS = 4000;
 const RELAY_EVERY_MS = 8000;
 let lastRelay = 0;
+let relayError = null;
 let relaying = null;
 
 async function relayOnce(env, hub) {
@@ -179,7 +180,7 @@ async function relayOnce(env, hub) {
   const timer = new Promise((r) => setTimeout(() => r({ timeout: true }), RELAY_READ_MS));
   try {
     const op = await Promise.race([sock.opened.then(() => "ok"), timer]);
-    if (op !== "ok") return;
+    if (op !== "ok") { relayError = "fikk ikke kontakt med Kystverket"; return; }
     while (true) {
       const res = await Promise.race([reader.read(), timer]);
       if (res.timeout || res.done) break;
@@ -190,13 +191,14 @@ async function relayOnce(env, hub) {
         try { const m = parser.parseLine(l); if (m) msgs.push(m); } catch {}
       }
     }
-  } catch {
-    // ignorer; neste forsøk kommer ved neste oppdatering
+  } catch (e) {
+    relayError = String((e && e.message) || e); // neste forsøk kommer ved neste oppdatering
   } finally {
     try { reader.releaseLock(); } catch {}
     try { sock.close(); } catch {}
   }
-  if (msgs.length) await hub.fetch("https://hub/ingest", { method: "POST", body: JSON.stringify(msgs) });
+  if (msgs.length) { relayError = null; await hub.fetch("https://hub/ingest", { method: "POST", body: JSON.stringify(msgs) }); }
+  else if (!relayError) relayError = "ingen data fra Kystverket på " + RELAY_READ_MS / 1000 + " s";
 }
 
 function hubStub(env) {
@@ -227,9 +229,11 @@ export default {
         lastRelay = Date.now();
         relaying = relaying || relayOnce(env, hub).finally(() => (relaying = null));
         await relaying;
-        res = await hub.fetch(request);
-        return res;
+        const fresh = await (await hub.fetch(request)).json();
+        fresh.stats.relayError = relayError;
+        return Response.json(fresh, { headers: { "Cache-Control": "no-store" } });
       }
+      data.stats.relayError = relayError;
       return Response.json(data, { headers: { "Cache-Control": "no-store" } });
     }
     return env.ASSETS.fetch(request);

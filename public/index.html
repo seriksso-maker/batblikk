@@ -257,8 +257,11 @@ async function poll() {
     updateTrack();
     const src = data.stats.source === "demo" ? "demo (simulert)" : "Kystverket";
     const st2 = data.stats, fresh = Math.max(st2.lastData || 0, st2.lastRelay || 0);
-    const on = st2.connected || data.now - fresh < 20000;
-    st.innerHTML = `<span class="dot ${on ? "on" : ""}"></span><b>${shown}</b> båter vist · ${src}${on ? "" : " · frakoblet"}`;
+    // Grønn når data har kommet siste minutt. Rett etter oppstart: «henter».
+    const age = fresh ? data.now - fresh : Infinity;
+    const on = st2.connected || age < 60000;
+    const state = on ? "" : !fresh && !st2.relayError ? " · henter data …" : " · ingen data fra Kystverket nå, prøver igjen";
+    st.innerHTML = `<span class="dot ${on ? "on" : ""}"></span><b>${shown}</b> båter vist · ${src}${state}`;
   } catch (e) {
     st.innerHTML = `<span class="dot"></span>Får ikke kontakt med serveren`;
   }
