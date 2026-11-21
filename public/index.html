@@ -122,15 +122,83 @@
   body.radar .leaflet-control-zoom{display:none}
   .dock button.rad.on{color:#7dffb0}
   @media (max-width:640px){ #radarHud{top:calc(58px + env(safe-area-inset-top));right:10px;font-size:11px} }
+
+  /* ---- PC-oppsett: filterpanel til venstre, statistikk til høyre ---- */
+  .side,.brand,.styles{display:none}
+  body.night .leaflet-tile-pane{filter:invert(1) hue-rotate(180deg) brightness(.85) contrast(.9) saturate(.7)}
+  @media (min-width:1000px){
+    :root{--lw:270px;--rw:300px}
+    body.lc{--lw:0px} body.rc{--rw:0px}
+    .dock,.status{display:none}
+    .side{display:flex;flex-direction:column;position:absolute;z-index:520;top:0;bottom:0;background:#08111c;border-color:var(--line);box-sizing:border-box;overflow:auto;transition:transform .2s}
+    .side>*{flex-shrink:0}
+    #left{left:0;width:270px;border-right:1px solid var(--line);padding:14px 14px 16px}
+    #right{right:0;width:300px;border-left:1px solid var(--line);padding:14px 14px 16px;gap:12px}
+    body.lc #left{transform:translateX(-100%)} body.rc #right{transform:translateX(100%)}
+    #map{left:var(--lw);right:var(--rw)}
+    .sideTog{position:absolute;z-index:530;top:50%;width:22px;height:64px;min-height:0;padding:0;border-radius:0 8px 8px 0;background:#0d1a29;border:1px solid var(--line);color:var(--cyan);font-size:15px;transform:translateY(-50%)}
+    #lTog{left:var(--lw);border-left:0}
+    #rTog{right:var(--rw);border-radius:8px 0 0 8px;border-right:0}
+    .side h4{display:flex;align-items:center;justify-content:space-between;margin:0 0 10px;font:600 12px var(--ui);letter-spacing:.12em;text-transform:uppercase;color:#a9bccd}
+    .side .lbl2{display:flex;justify-content:space-between;color:#c9d6e2;font-size:13px;margin:14px 0 6px}
+    .side .lbl2 b{color:var(--cyan);font:500 12px var(--mono)}
+    .side .hint{color:var(--mute);font-size:11.5px;margin-top:4px}
+    .box{background:#0b1624;border:1px solid var(--line);border-radius:8px;padding:6px 8px;max-height:230px;overflow:auto}
+    .ck{display:flex;align-items:center;gap:8px;padding:4px 2px;cursor:pointer;font-size:13.5px}
+    .ck input{width:15px;height:15px;accent-color:var(--cyan);margin:0}
+    .ck svg{flex:none;overflow:visible}
+    .ck .n{margin-left:auto;color:var(--mute);font:11.5px var(--mono)}
+    .side input[type=text]{width:100%;box-sizing:border-box;background:#0b1624;border:1px solid var(--line);border-radius:8px;color:var(--fg);padding:8px 10px;font:14px var(--ui);margin-bottom:6px}
+    .side input[type=range]{width:100%;accent-color:var(--cyan)}
+    .side .reset{width:100%;margin-top:14px;background:#0d1a29;color:#a9bccd}
+    .card{background:#0b1624;border:1px solid var(--line);border-radius:12px;padding:12px 14px}
+    .card .k{color:#a9bccd;font:600 11.5px var(--ui);letter-spacing:.12em;text-transform:uppercase}
+    .live{display:flex;gap:10px;align-items:flex-start}
+    .live .d{width:10px;height:10px;border-radius:50%;background:var(--mute);margin-top:4px;flex:none}
+    .live .d.ok{background:var(--ok);box-shadow:0 0 8px var(--ok)} .live .d.err{background:var(--bad)} .live .d.load{background:var(--amber)}
+    .live .st{color:var(--ok);font-weight:600;margin-left:6px;letter-spacing:0;text-transform:none;font-size:13px}
+    .live .st.err{color:var(--bad)} .live .st.load{color:var(--amber)}
+    .live .sub{color:var(--mute);font-size:12px;margin-top:2px}
+    .big{font:700 46px/1.05 var(--cond);color:#9fe3ff;margin-top:4px;font-variant-numeric:tabular-nums}
+    .tiles{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+    .tile{display:flex;gap:10px;align-items:center;background:#0b1624;border:1px solid var(--line);border-radius:12px;padding:10px}
+    .tile .ic{width:36px;height:36px;border-radius:8px;display:flex;align-items:center;justify-content:center;flex:none}
+    .tile .v{font:700 22px var(--cond);font-variant-numeric:tabular-nums}
+    .tile .k{font-size:10.5px}
+    .tlist div{display:flex;align-items:center;gap:10px;padding:6px 0;font-size:14px}
+    .tlist .dot{width:10px;height:10px;border-radius:50%}
+    .tlist .n{margin-left:auto;font:600 13px var(--mono)}
+    .sec{color:#a9bccd;font:600 11.5px var(--ui);letter-spacing:.12em;text-transform:uppercase;margin:4px 0 -4px}
+    .top{left:calc(var(--lw) + (100% - var(--lw) - var(--rw))/2);transform:translateX(-50%);width:min(620px,calc(100% - var(--lw) - var(--rw) - 40px));padding-top:14px;transition:left .2s}
+    .topbar{display:flex;align-items:center;gap:10px;background:rgba(8,17,28,.92);border:1px solid var(--line);border-radius:16px;padding:8px}
+    .brand{display:flex;align-items:center;gap:10px;padding:0 10px 0 4px;border-right:1px solid var(--line);flex:none}
+    .brand .lg{width:38px;height:38px;border-radius:50%;background:#13263a;display:flex;align-items:center;justify-content:center}
+    .brand b{display:block;font:700 15px var(--cond);letter-spacing:.14em}
+    .brand span{display:block;color:var(--mute);font-size:11.5px;margin-top:-2px}
+    .topbar .sbox{flex:1}
+    .topbar .sbox input{background:#0b1624;color:var(--fg);border:1px solid #24405c;box-shadow:none}
+    .topbar .sbox input::placeholder{color:#7b8fa3}
+    .styles{display:flex;position:absolute;z-index:510;bottom:22px;left:calc(var(--lw) + (100% - var(--lw) - var(--rw))/2);transform:translateX(-50%);gap:8px;transition:left .2s}
+    .styles button{background:rgba(8,17,28,.92);border:1px solid var(--line);border-radius:10px;padding:8px 14px;font-weight:500;white-space:nowrap}
+    .styles button.on{border-color:#5aa9d6;background:#13263a;color:#d9f1ff}
+    .styles button.rad.on{border-color:#3fbf78;color:#7dffb0;background:#0d2a1b}
+    .sheet{left:calc(var(--lw) + (100% - var(--lw) - var(--rw))/2);bottom:76px}
+    aside{right:calc(var(--rw) + 14px);top:84px;max-height:calc(100% - 170px)}
+    #radarHud{right:calc(var(--rw) + 14px);top:90px}
+    .leaflet-bottom.leaflet-right .leaflet-control-zoom{margin-bottom:24px}
+  }
 </style>
 </head>
 <body>
 <div id="map"></div>
 
 <div class="top">
+  <div class="topbar">
+  <div class="brand"><div class="lg"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#9fe3ff" stroke-width="1.7" stroke-linejoin="round" stroke-linecap="round"><path d="M3 15h18l-2.5 4.5H5.5z"/><path d="M6 15V10h9l3 5"/><path d="M9 10V6h4v4"/></svg></div><div><b>BÅTBLIKK</b><span>Live AIS-kart</span></div></div>
   <div class="sbox">
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
     <input id="q" type="search" placeholder="Søk båt, MMSI eller kallesignal" autocomplete="off">
+  </div>
   </div>
   <div id="qRes" hidden></div>
 </div>
@@ -172,6 +240,52 @@
   <button type="button" data-sheet="shSet"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>Innstillinger</button>
 </nav>
 
+
+<section class="side" id="left">
+  <h4>Filter</h4>
+  <div class="lbl2">Båttype</div>
+  <div class="box" id="fTypes" style="max-height:none"></div>
+  <div class="hint">Ingen valgt = alle typer</div>
+  <div class="lbl2">Flagg (registrert i)</div>
+  <input type="text" id="fFlagQ" placeholder="Søk land …" autocomplete="off">
+  <div class="box" id="fFlags"></div>
+  <div class="hint">Ingen valgt = alle land</div>
+  <div class="lbl2">Minste fart <b id="fSpdV">0 kn</b></div>
+  <input type="range" id="fSpd" min="0" max="30" step="0.5" value="0">
+  <div class="hint">0 kn = også båter som ligger stille</div>
+  <label class="ck" style="margin-top:12px"><input type="checkbox" id="fDest">Bare båter med kjent destinasjon</label>
+  <label class="ck"><input type="checkbox" id="fNames">Vis båtnavn når du zoomer inn</label>
+  <label class="ck"><input type="checkbox" id="fSea">Sjømerker og fyr</label>
+  <div class="lbl2">Hopp til område</div>
+  <div id="fRegs" style="display:grid;grid-template-columns:1fr 1fr;gap:6px"></div>
+  <button type="button" class="reset" id="fReset">Nullstill alle filter</button>
+</section>
+<button type="button" class="sideTog side" id="lTog" aria-label="Skjul filter">‹</button>
+
+<section class="side" id="right">
+  <div class="card live"><span class="d load" id="rDot"></span><div><span class="k">Live flåte</span><span class="st load" id="rSt">Kobler til</span><div class="sub" id="rSub">Henter posisjoner …</div></div></div>
+  <div class="card"><div class="k">Båter i bildet</div><div class="big" id="rView">–</div></div>
+  <div class="sec">Bevegelse</div>
+  <div class="tiles">
+    <div class="tile"><div class="ic" style="background:#0f3a2f"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#4fd18b" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 15h18l-2.5 4.5H5.5z"/><path d="M6 15V10h9l3 5"/><path d="M2 8h4M1 11h3"/></svg></div><div><div class="k">I fart</div><div class="v" id="rMov">–</div></div></div>
+    <div class="tile"><div class="ic" style="background:#3a2a0f"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#ffb454" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="5" r="2"/><path d="M12 7v14M5 13a7 7 0 0 0 14 0M8 10h8"/></svg></div><div><div class="k">Ligger stille</div><div class="v" id="rStill">–</div></div></div>
+  </div>
+  <div class="sec">Etter båttype</div>
+  <div class="card tlist" id="rTypes"></div>
+  <div class="sec">Kilder</div>
+  <div class="card tlist" id="rSrc"></div>
+</section>
+<button type="button" class="sideTog side" id="rTog" aria-label="Skjul statistikk">›</button>
+
+<div class="styles" id="styles">
+  <button type="button" data-style="dark">🌑 Mørkt</button>
+  <button type="button" data-style="sat">🛰️ Flyfoto</button>
+  <button type="button" data-style="night">🧭 Nattsjøkart</button>
+  <button type="button" data-style="sjo">⚓ Sjøkart</button>
+  <button type="button" data-style="light">☀️ Lyst</button>
+  <button type="button" data-style="more">Flere kart …</button>
+  <button type="button" class="rad" id="radarBtn2">📡 Radar</button>
+</div>
 <aside id="panel" hidden></aside>
 <div id="radarHud"></div>
 
@@ -210,6 +324,8 @@ const BASES = {
   sjo:  { label:"Sjøkart", layer:L.tileLayer(KV + "sjokartraster/default/webmercator/{z}/{y}/{x}.png", { maxZoom:18, attribution:kvAttr }) },
   topo: { label:"Topografisk", layer:L.tileLayer(KV + "topo/default/webmercator/{z}/{y}/{x}.png", { maxZoom:18, attribution:kvAttr }) },
   graa: { label:"Gråtone", layer:L.tileLayer(KV + "topograatone/default/webmercator/{z}/{y}/{x}.png", { maxZoom:18, attribution:kvAttr }) },
+  light:{ label:"Lyst", layer:L.layerGroup([L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}", { maxZoom:19, maxNativeZoom:16, attribution:"Kart &copy; Esri" }), L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Reference/MapServer/tile/{z}/{y}/{x}", { maxZoom:19, maxNativeZoom:16 })]) },
+  night:{ label:"Nattsjøkart", layer:L.tileLayer(KV + "sjokartraster/default/webmercator/{z}/{y}/{x}.png", { maxZoom:18, attribution:kvAttr }) },
   sat:  { label:"Flyfoto", layer:L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}", { maxZoom:18, attribution:"Bilder &copy; Esri, Maxar" }) },
 };
 const OVERLAYS = {
@@ -230,6 +346,9 @@ function applyMap() {
   $("baseChips").innerHTML = Object.entries(BASES).map(([k, b]) => `<button type="button" data-base="${k}" class="${k === baseId ? "on" : ""}">${b.label}</button>`).join("");
   $("ovChips").innerHTML = Object.entries(OVERLAYS).map(([k, o]) => `<button type="button" data-ov="${k}" class="${ovOn.has(k) ? "on" : ""}">${o.label}</button>`).join("");
   store.set("batblikk.base2", baseId); store.set("batblikk.ov2", JSON.stringify([...ovOn]));
+  document.body.classList.toggle("night", baseId === "night");
+  for (const b of document.querySelectorAll("[data-style]")) b.classList.toggle("on", b.dataset.style === baseId);
+  if ($("fSea")) $("fSea").checked = ovOn.has("seamark");
 }
 $("regChips").innerHTML = REGIONS.map(([n], i) => `<button type="button" data-reg="${i}">${n}</button>`).join("");
 $("shMap").addEventListener("click", e => {
@@ -259,6 +378,13 @@ function shipSvg(catId, color, size, rot, faded) {
 const enabled = new Set((() => { try { const a = JSON.parse(store.get("batblikk.types")); return Array.isArray(a) ? a : null; } catch { return null; } })() || CATS.map(c => c.id));
 let movingOnly = store.get("batblikk.moving") === "1";
 let showNames = store.get("batblikk.names") === "1";
+let minSpeed = +(store.get("batblikk.minspd") || 0) || 0;
+let destOnly = store.get("batblikk.dest") === "1";
+const flags = new Set((() => { try { return JSON.parse(store.get("batblikk.flags") || "[]"); } catch { return []; } })());
+// Flagg fra MMSI (de tre første sifrene, MID)
+const MID = {201:"Albania",203:"Østerrike",205:"Belgia",209:"Kypros",210:"Kypros",212:"Kypros",211:"Tyskland",218:"Tyskland",219:"Danmark",220:"Danmark",224:"Spania",225:"Spania",226:"Frankrike",227:"Frankrike",228:"Frankrike",229:"Malta",215:"Malta",248:"Malta",249:"Malta",256:"Malta",230:"Finland",231:"Færøyene",232:"Storbritannia",233:"Storbritannia",234:"Storbritannia",235:"Storbritannia",236:"Gibraltar",237:"Hellas",239:"Hellas",240:"Hellas",241:"Hellas",244:"Nederland",245:"Nederland",246:"Nederland",247:"Italia",250:"Irland",251:"Island",253:"Luxembourg",255:"Portugal (Madeira)",257:"Norge",258:"Norge",259:"Norge",261:"Polen",263:"Portugal",265:"Sverige",266:"Sverige",269:"Sveits",271:"Tyrkia",273:"Russland",275:"Latvia",276:"Estland",277:"Litauen",305:"Antigua og Barbuda",304:"Antigua og Barbuda",308:"Bahamas",309:"Bahamas",311:"Bahamas",314:"Barbados",316:"Canada",319:"Caymanøyene",338:"USA",366:"USA",367:"USA",368:"USA",369:"USA",370:"Panama",351:"Panama",352:"Panama",353:"Panama",354:"Panama",355:"Panama",356:"Panama",357:"Panama",371:"Panama",372:"Panama",373:"Panama",374:"Panama",375:"St. Vincent",376:"St. Vincent",377:"St. Vincent",412:"Kina",413:"Kina",414:"Kina",419:"India",431:"Japan",432:"Japan",440:"Sør-Korea",441:"Sør-Korea",477:"Hongkong",503:"Australia",512:"New Zealand",525:"Indonesia",533:"Malaysia",538:"Marshalløyene",548:"Filippinene",563:"Singapore",564:"Singapore",565:"Singapore",566:"Singapore",572:"Tuvalu",574:"Vietnam",620:"Komorene",636:"Liberia",637:"Liberia",667:"Sierra Leone",671:"Togo",710:"Brasil",725:"Chile"};
+const flagOf = mmsi => MID[String(mmsi).slice(0,3)] || null;
+const passes = s => (minSpeed <= 0 || (s.sog != null && s.sog >= minSpeed)) && (!destOnly || !!s.destination) && (!flags.size || flags.has(flagOf(s.mmsi) || "Ukjent"));
 const markers = new Map(); // mmsi -> { marker, key, ship }
 let ships = [], byMmsi = new Map(), lastNow = Date.now();
 let selected = null; // mmsi
@@ -285,7 +411,7 @@ function render() {
     const cat = catOf(s.shipType);
     counts[cat.id]++;
     const special = (tracking && tracking.mmsi === s.mmsi) || selected === s.mmsi;
-    if (!special && (!enabled.has(cat.id) || (movingOnly && !isMoving(s)))) continue;
+    if (!special && (!enabled.has(cat.id) || (movingOnly && !isMoving(s)) || !passes(s))) continue;
     seen.add(s.mmsi); shown++;
     const { key, icon } = iconFor(s, cat);
     let m = markers.get(s.mmsi);
@@ -305,6 +431,7 @@ function render() {
   }
   for (const [mmsi, m] of markers) if (!seen.has(mmsi)) { m.marker.remove(); markers.delete(mmsi); }
   renderTypeChips(counts);
+  renderSides(counts);
   return shown;
 }
 
@@ -395,9 +522,10 @@ function showPanel() {
       ${cell("Fart", s.sog != null ? `${s.sog.toFixed(1)} kn` : "–")}
       ${cell("Kurs", s.cog != null ? `${Math.round(s.cog)}°` : "–")}
       ${cell("MMSI", s.mmsi)}
+      ${cell("Flagg", flagOf(s.mmsi) || "–")}
       ${cell("Kallesignal", s.callsign || "–")}
       ${s.imo ? cell("IMO", s.imo) : ""}
-      ${cell("Sist sett", ago(lastNow - s.seen), !s.imo)}
+      ${cell("Sist sett", ago(lastNow - s.seen), !!s.imo)}
       ${cell("Destinasjon", s.destination, true)}
       ${cell("Status", s.status != null ? STATUS[s.status] : null, true)}
       ${cell("Posisjon", `${s.lat.toFixed(4)}° N, ${s.lon.toFixed(4)}° Ø`, true)}
@@ -492,13 +620,15 @@ async function poll() {
     const age = fresh ? lastNow - fresh : Infinity;
     const on = st.connected || age < 60000;
     $("dot").className = on ? "ok" : !fresh && !st.relayError ? "load" : "err";
+    liveState = on ? { cls:"ok", st:"Tilkoblet", sub:"Mottar posisjoner i sanntid" } : !fresh && !st.relayError ? { cls:"load", st:"Henter", sub:"Henter data …" } : { cls:"err", st:"Venter", sub:"Venter på Kystverket" };
+    renderSides();
     $("stxt").textContent = `${shown} båter` + (on ? "" : !fresh && !st.relayError ? " · henter data …" : " · venter på Kystverket");
     const nFi = ships.filter(s => s.src === "fi").length, nAs = ships.filter(s => s.src === "as").length;
     $("srcStat").textContent = `Akkurat nå: ${ships.length - nFi - nAs} båter fra Kystverket, ${nFi} fra Finland` + (nAs ? ` og ${nAs} fra aisstream.io (Danmark/Sverige).` : ".");
     fails = 0;
   } catch {
     // Ett enkelt bom (f.eks. mens en ny versjon rulles ut) skal ikke gi rødt.
-    if (++fails >= 3) { $("dot").className = "err"; $("stxt").textContent = `${ships.length} båter · prøver å koble til igjen …`; }
+    if (++fails >= 3) { liveState = { cls:"err", st:"Frakoblet", sub:"Prøver å koble til igjen …" }; renderSides(); $("dot").className = "err"; $("stxt").textContent = `${ships.length} båter · prøver å koble til igjen …`; }
   }
 }
 let fails = 0;
@@ -582,13 +712,80 @@ function radarDraw() {
 function setRadar(on) {
   radar.on = on; radarInit();
   document.body.classList.toggle("radar", on);
-  $("radarBtn").classList.toggle("on", on);
+  $("radarBtn").classList.toggle("on", on); $("radarBtn2").classList.toggle("on", on);
   cancelAnimationFrame(radar.raf);
   if (on) { radar.t0 = performance.now(); radarDraw(); }
   store.set("batblikk.radar", on ? "1" : "0");
 }
 $("radarBtn").onclick = () => { closeSheets(); setRadar(!radar.on); };
 if (store.get("batblikk.radar") === "1") setRadar(true);
+
+// ---- PC-oppsett: sidepaneler ----
+const SRC_NAMES = { no:"Kystverket", fi:"Finland (Digitraffic)", as:"Danmark/Sverige (aisstream)" };
+var liveState = { cls:"load", st:"Kobler til", sub:"Henter posisjoner …" };
+let lastCounts = null;
+function renderSides(allCounts) {
+  if (allCounts) lastCounts = allCounts; else allCounts = lastCounts;
+  if (innerWidth < 1000) return;
+  // Typeliste med avkrysning (ingen valgt = alle)
+  const allOn = enabled.size === CATS.length;
+  const th = CATS.map(c => `<label class="ck"><input type="checkbox" data-ft="${c.id}" ${!allOn && enabled.has(c.id) ? "checked" : ""}>${shipSvg(c.id, c.color, 16, 0, false)}${c.label}<span class="n">${allCounts ? allCounts[c.id] : ""}</span></label>`).join("");
+  if ($("fTypes").innerHTML !== th) $("fTypes").innerHTML = th;
+  // Flagg: land som finnes i dataene, flest først
+  const fc = new Map();
+  for (const s of ships) { const f = flagOf(s.mmsi) || "Ukjent"; fc.set(f, (fc.get(f) || 0) + 1); }
+  const fq = $("fFlagQ").value.trim().toLowerCase();
+  const fl = [...fc].filter(([f]) => !fq || f.toLowerCase().includes(fq)).sort((a, b) => (flags.has(b[0]) - flags.has(a[0])) || b[1] - a[1]);
+  const fh = fl.map(([f, n]) => `<label class="ck"><input type="checkbox" data-flag="${esc(f)}" ${flags.has(f) ? "checked" : ""}>${esc(f)}<span class="n">${n}</span></label>`).join("") || `<div class="hint">Ingen treff</div>`;
+  if ($("fFlags").innerHTML !== fh && !$("fFlags").matches(":hover")) $("fFlags").innerHTML = fh;
+  // Statistikk for det som er i bildet
+  const b = map.getBounds(); let n = 0, mov = 0; const tc = {}, sc = {};
+  for (const m of markers.values()) {
+    const s = m.ship; if (!s || !b.contains([s.lat, s.lon])) continue;
+    n++; if (isMoving(s)) mov++;
+    const c = catOf(s.shipType).id; tc[c] = (tc[c] || 0) + 1;
+    sc[s.src || "no"] = (sc[s.src || "no"] || 0) + 1;
+  }
+  $("rView").textContent = n.toLocaleString("nb-NO");
+  $("rMov").textContent = mov.toLocaleString("nb-NO");
+  $("rStill").textContent = (n - mov).toLocaleString("nb-NO");
+  $("rTypes").innerHTML = CATS.filter(c => tc[c.id]).sort((a, b) => tc[b.id] - tc[a.id]).map(c => `<div><span class="dot" style="background:${c.color}"></span>${c.label}<span class="n">${tc[c.id].toLocaleString("nb-NO")}</span></div>`).join("") || `<div class="hint">Ingen båter i bildet</div>`;
+  $("rSrc").innerHTML = Object.keys(SRC_NAMES).map(k => `<div><span class="dot" style="background:${k === "no" ? "#59d0ff" : k === "fi" ? "#b77cff" : "#ffb454"}"></span>${SRC_NAMES[k]}<span class="n">${(sc[k] || 0).toLocaleString("nb-NO")}</span></div>`).join("");
+  $("rDot").className = "d " + liveState.cls; $("rSt").className = "st " + liveState.cls;
+  $("rSt").textContent = liveState.st; $("rSub").textContent = liveState.sub;
+}
+const saveFilters = () => { store.set("batblikk.types", JSON.stringify([...enabled])); store.set("batblikk.flags", JSON.stringify([...flags])); store.set("batblikk.minspd", String(minSpeed)); store.set("batblikk.dest", destOnly ? "1" : "0"); };
+$("fTypes").addEventListener("change", e => {
+  const id = e.target.dataset.ft; if (!id) return;
+  const checked = [...$("fTypes").querySelectorAll("input:checked")].map(i => i.dataset.ft);
+  enabled.clear(); (checked.length ? checked : CATS.map(c => c.id)).forEach(x => enabled.add(x));
+  saveFilters(); render();
+});
+$("fFlags").addEventListener("change", e => { const f = e.target.dataset.flag; if (!f) return; e.target.checked ? flags.add(f) : flags.delete(f); saveFilters(); render(); });
+$("fFlagQ").addEventListener("input", () => renderSides());
+$("fSpd").value = minSpeed; $("fSpdV").textContent = minSpeed + " kn";
+$("fSpd").addEventListener("input", e => { minSpeed = +e.target.value; $("fSpdV").textContent = minSpeed + " kn"; saveFilters(); render(); });
+$("fDest").checked = destOnly; $("fDest").onchange = e => { destOnly = e.target.checked; saveFilters(); render(); };
+$("fNames").checked = showNames; $("fNames").onchange = e => { showNames = e.target.checked; $("namesChk").checked = showNames; store.set("batblikk.names", showNames ? "1" : "0"); render(); };
+$("fSea").checked = ovOn.has("seamark"); $("fSea").onchange = e => { e.target.checked ? ovOn.add("seamark") : ovOn.delete("seamark"); applyMap(); };
+$("fRegs").innerHTML = REGIONS.map(([n], i) => `<button type="button" data-reg="${i}" style="padding:6px 8px;min-height:0;font-size:13px;background:#0d1a29">${n}</button>`).join("");
+$("fRegs").addEventListener("click", e => { const b = e.target.closest("[data-reg]"); if (b) map.flyToBounds(REGIONS[+b.dataset.reg][1], { duration:.8 }); });
+$("fReset").onclick = () => { CATS.forEach(c => enabled.add(c.id)); flags.clear(); minSpeed = 0; destOnly = false; movingOnly = false; $("fSpd").value = 0; $("fSpdV").textContent = "0 kn"; $("fDest").checked = false; $("fFlagQ").value = ""; store.set("batblikk.moving", "0"); saveFilters(); render(); };
+$("styles").addEventListener("click", e => {
+  const b = e.target.closest("[data-style]"); if (!b) return;
+  if (b.dataset.style === "more") { const open = $("shMap").hidden; closeSheets(); $("shMap").hidden = !open; return; }
+  baseId = b.dataset.style; applyMap();
+});
+const sideState = () => { store.set("batblikk.lc", document.body.classList.contains("lc") ? "1" : "0"); store.set("batblikk.rc", document.body.classList.contains("rc") ? "1" : "0"); setTimeout(() => map.invalidateSize(), 220); };
+$("lTog").onclick = () => { document.body.classList.toggle("lc"); $("lTog").textContent = document.body.classList.contains("lc") ? "›" : "‹"; sideState(); };
+$("rTog").onclick = () => { document.body.classList.toggle("rc"); $("rTog").textContent = document.body.classList.contains("rc") ? "‹" : "›"; sideState(); };
+if (store.get("batblikk.lc") === "1") { document.body.classList.add("lc"); $("lTog").textContent = "›"; }
+if (store.get("batblikk.rc") === "1") { document.body.classList.add("rc"); $("rTog").textContent = "‹"; }
+map.invalidateSize();
+map.on("moveend", () => renderSides());
+addEventListener("resize", () => { map.invalidateSize(); renderSides(); });
+$("radarBtn2").onclick = () => $("radarBtn").click();
+applyMap();
 renderTypeChips();
 loop();
 </script>
