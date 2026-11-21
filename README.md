@@ -9,3 +9,5 @@ Live kart over båttrafikk i norske farvann, med data fra Kystverkets åpne AIS-
 Publiseres automatisk til Cloudflare når `main` endres (Workers Builds).
 
 Lokalt: `npm install && npx wrangler dev`.
+
+Live: https://batblikk.seriksso.workers.dev
