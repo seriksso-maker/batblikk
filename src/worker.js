@@ -330,9 +330,14 @@ async function aisstreamOnce(env, hub) {
 export default {
   async fetch(request, env) {
     try {
-      return await handle(request, env);
+      const res = await handle(request, env);
+      if (!new URL(request.url).pathname.startsWith("/api/")) return res;
+      // Tillat at siden på GitHub Pages (eller andre steder) henter båtdataene
+      const out = new Response(res.body, res);
+      out.headers.set("Access-Control-Allow-Origin", "*");
+      return out;
     } catch (e) {
-      return Response.json({ error: String((e && e.stack) || e) }, { status: 500, headers: { "Cache-Control": "no-store" } });
+      return Response.json({ error: String((e && e.stack) || e) }, { status: 500, headers: { "Cache-Control": "no-store", "Access-Control-Allow-Origin": "*" } });
     }
   },
 };

@@ -359,6 +359,8 @@ const STATUS = ["Under gange (motor)","Til ankers","Ikke manøvrerbar","Begrense
 const catOf = t => CATS.find(c => t != null && c.test(t)) || CATS[CATS.length-1];
 const typeName = t => t==null ? "Ukjent type" : TYPE_NAMES[t] || (t>=40&&t<50?"Hurtigbåt":t>=60&&t<70?"Passasjerskip":t>=70&&t<80?"Lasteskip":t>=80&&t<90?"Tankskip":`Type ${t}`);
 const $ = id => document.getElementById(id);
+// På GitHub Pages ligger bare selve siden; båtdataene hentes fra Cloudflare-serveren.
+const API = location.hostname.endsWith("github.io") ? "https://batblikk.seriksso.workers.dev/" : "";
 const store = { get(k) { try { return localStorage.getItem(k); } catch { return null; } }, set(k, v) { try { localStorage.setItem(k, v); } catch {} } };
 const esc = v => String(v).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 const ago = ms => { const s = Math.max(0, Math.round(ms/1000)); return s < 60 ? `${s} s siden` : s < 3600 ? `${Math.round(s/60)} min siden` : `${Math.round(s/3600)} t siden`; };
@@ -649,7 +651,7 @@ async function updateTrack() {
   if (!tracking) return;
   const t = tracking;
   try {
-    const r = await fetch("api/track?mmsi=" + t.mmsi, { cache:"no-store" });
+    const r = await fetch(API + "api/track?mmsi=" + t.mmsi, { cache:"no-store" });
     if (!r.ok) return;
     const pts = await r.json();
     if (tracking !== t) return;
@@ -680,7 +682,7 @@ map.on("zoomend", render);
 // ---- Henting ----
 async function poll() {
   try {
-    const r = await fetch("api/ships", { cache:"no-store", signal: AbortSignal.timeout ? AbortSignal.timeout(20000) : undefined });
+    const r = await fetch(API + "api/ships", { cache:"no-store", signal: AbortSignal.timeout ? AbortSignal.timeout(20000) : undefined });
     if (!r.ok) throw new Error(r.status);
     const data = await r.json();
     ships = data.ships || []; byMmsi = new Map(ships.map(s => [s.mmsi, s])); lastNow = data.now || Date.now();
