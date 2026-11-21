@@ -10,6 +10,10 @@ import { AisParser } from "./ais.js";
 const MAX_AGE_MS = 30 * 60 * 1000; // vis båter sett siste 30 min
 const ALARM_MS = 30 * 1000; // vekker objektet jevnlig så det holder seg i live
 const STALE_MS = 90 * 1000; // ingen data på så lenge = koble til på nytt
+// Øk VERSION ved endringer i AisHub. En kjørende, eldre instans starter seg da på nytt
+// (Cloudflare bytter ikke alltid kode i et objekt som får jevnlige forespørsler).
+const VERSION = 4;
+const HUB_NAME = "norge-eu-2";
 const TRACK_MS = 6 * 60 * 60 * 1000; // husk rute 6 timer bakover
 const TRACK_MAX = 400;
 const STATIC_KEYS = ["name", "callsign", "shipType", "destination", "imo"];
@@ -20,7 +24,7 @@ export class AisHub extends DurableObject {
     this.ships = new Map();
     this.tracks = new Map(); // mmsi -> [[lat, lon, tid], ...] siste timer (bare i minnet)
     this.dirty = new Set(); // mmsi med nye navn/typer som ikke er lagret
-    this.stats = { version: 3, source: "kystverket", connected: false, messages: 0, since: Date.now(), lastData: 0, lastError: null, reconnects: 0, alarms: 0, saved: 0 };
+    this.stats = { version: VERSION, source: "kystverket", connected: false, messages: 0, since: Date.now(), lastData: 0, lastError: null, reconnects: 0, alarms: 0, saved: 0 };
     this.socket = null;
 
     ctx.blockConcurrencyWhile(async () => {
@@ -38,6 +42,7 @@ export class AisHub extends DurableObject {
 
   async fetch(request) {
     const url = new URL(request.url);
+    if (Number(request.headers.get("x-batblikk-version")) > VERSION) this.ctx.abort("ny versjon av koden");
     // Meldinger som workeren selv har lest fra Kystverket (reserve når objektet ikke når fram selv)
     if (request.method === "POST" && url.pathname === "/ingest") {
       const msgs = await request.json();
@@ -194,14 +199,27 @@ async function relayOnce(env, hub) {
   if (msgs.length) await hub.fetch("https://hub/ingest", { method: "POST", body: JSON.stringify(msgs) });
 }
 
+function hubStub(env) {
+  const stub = env.AIS_HUB.get(env.AIS_HUB.idFromName(HUB_NAME), { locationHint: "weur" });
+  // Sender versjonen med, og prøver én gang til hvis objektet startet seg på nytt.
+  return {
+    async fetch(input, init = {}) {
+      const req = new Request(input, init);
+      req.headers.set("x-batblikk-version", String(VERSION));
+      try { return await stub.fetch(req.clone()); }
+      catch { return env.AIS_HUB.get(env.AIS_HUB.idFromName(HUB_NAME), { locationHint: "weur" }).fetch(req); }
+    },
+  };
+}
+
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
     if (url.pathname === "/api/track") {
-      return env.AIS_HUB.get(env.AIS_HUB.idFromName("norge-eu"), { locationHint: "weur" }).fetch(request);
+      return hubStub(env).fetch(request);
     }
     if (url.pathname === "/api/ships") {
-      const hub = env.AIS_HUB.get(env.AIS_HUB.idFromName("norge-eu"), { locationHint: "weur" });
+      const hub = hubStub(env);
       let res = await hub.fetch(request);
       const data = await res.json();
       const hubLive = data.stats.connected && Date.now() - data.stats.lastData < 15000;
