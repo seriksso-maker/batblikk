@@ -32,7 +32,16 @@ export class AisHub extends DurableObject {
     });
   }
 
-  async fetch() {
+  async fetch(request) {
+    const url = new URL(request.url);
+    // Meldinger som workeren selv har lest fra Kystverket (reserve når objektet ikke når fram selv)
+    if (request.method === "POST" && url.pathname === "/ingest") {
+      const msgs = await request.json();
+      for (const m of msgs) this.update(m);
+      this.stats.relayed = (this.stats.relayed || 0) + msgs.length;
+      this.stats.lastRelay = Date.now();
+      return new Response("ok");
+    }
     this.ensureConnected();
     if (!(await this.ctx.storage.getAlarm())) await this.ctx.storage.setAlarm(Date.now() + ALARM_MS);
 
@@ -123,12 +132,59 @@ export class AisHub extends DurableObject {
   }
 }
 
+// Reserve: workeren leser selv fra Kystverket i noen sekunder og sender meldingene til objektet.
+// Brukes når objektet ikke har fått data selv (noen Cloudflare-steder slipper ikke gjennom).
+const RELAY_READ_MS = 4000;
+const RELAY_EVERY_MS = 8000;
+let lastRelay = 0;
+let relaying = null;
+
+async function relayOnce(env, hub) {
+  const sock = connect({ hostname: env.AIS_HOST, port: Number(env.AIS_PORT) });
+  const reader = sock.readable.getReader();
+  const parser = new AisParser();
+  const dec = new TextDecoder("latin1");
+  const msgs = [];
+  let buf = "";
+  const timer = new Promise((r) => setTimeout(() => r({ timeout: true }), RELAY_READ_MS));
+  try {
+    const op = await Promise.race([sock.opened.then(() => "ok"), timer]);
+    if (op !== "ok") return;
+    while (true) {
+      const res = await Promise.race([reader.read(), timer]);
+      if (res.timeout || res.done) break;
+      buf += dec.decode(res.value, { stream: true });
+      const lines = buf.split(/\r?\n/);
+      buf = lines.pop();
+      for (const l of lines) {
+        try { const m = parser.parseLine(l); if (m) msgs.push(m); } catch {}
+      }
+    }
+  } catch {
+    // ignorer; neste forsøk kommer ved neste oppdatering
+  } finally {
+    try { reader.releaseLock(); } catch {}
+    try { sock.close(); } catch {}
+  }
+  if (msgs.length) await hub.fetch("https://hub/ingest", { method: "POST", body: JSON.stringify(msgs) });
+}
+
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
     if (url.pathname === "/api/ships") {
-      const hub = env.AIS_HUB.get(env.AIS_HUB.idFromName("norge"));
-      return hub.fetch(request);
+      const hub = env.AIS_HUB.get(env.AIS_HUB.idFromName("norge-eu"), { locationHint: "weur" });
+      let res = await hub.fetch(request);
+      const data = await res.json();
+      const hubLive = data.stats.connected && Date.now() - data.stats.lastData < 15000;
+      if (!hubLive && Date.now() - lastRelay > RELAY_EVERY_MS) {
+        lastRelay = Date.now();
+        relaying = relaying || relayOnce(env, hub).finally(() => (relaying = null));
+        await relaying;
+        res = await hub.fetch(request);
+        return res;
+      }
+      return Response.json(data, { headers: { "Cache-Control": "no-store" } });
     }
     return env.ASSETS.fetch(request);
   },
