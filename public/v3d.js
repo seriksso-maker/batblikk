@@ -166,7 +166,7 @@
       style:{
         version:8,
         sources:{
-          sat:{ type:"raster", tileSize:256, maxzoom:18, attribution:"Bilder © Esri, Maxar", tiles:["https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"] },
+          sat:{ type:"raster", tileSize:256, maxzoom:13, attribution:"Bilder © Esri, Maxar", tiles:["https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"] },
           kart:{ type:"raster", tileSize:256, maxzoom:18, attribution:"© Kartverket", tiles:["https://cache.kartverket.no/v1/wmts/1.0.0/topo/default/webmercator/{z}/{y}/{x}.png"] },
           dem:{ type:"raster-dem", tileSize:256, maxzoom:14, encoding:"terrarium", attribution:"Terreng: AWS/Mapzen", tiles:["https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png"] },
           ships3d:{ type:"geojson", data:{ type:"FeatureCollection", features:[] } },
