@@ -3,55 +3,42 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#070d14">
-<title>Velg kart</title>
+<meta name="theme-color" content="#050d1c">
+<title>SkyPuls og SeaPuls</title>
 <link rel="icon" type="image/svg+xml" href="icon.svg?v=2">
 <link rel="apple-touch-icon" href="apple-touch-icon.png?v=2">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Live kart">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600&family=Barlow+Condensed:wght@600;700&display=swap">
 <style>
-  :root{--bg:#070d14;--fg:#e6eef4;--mute:#8399ad;--line:#1d2b3a}
+  :root{--bg:#050d1c;--fg:#e6eef4;--mute:#7f93ab}
   *{box-sizing:border-box}
   html,body{margin:0;min-height:100%;background:var(--bg);color:var(--fg);font:15px/1.45 'Barlow',system-ui,sans-serif}
-  body{min-height:100vh;min-height:100dvh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:calc(24px + env(safe-area-inset-top)) 16px calc(24px + env(safe-area-inset-bottom));overflow-x:hidden}
-  .bgfx{position:fixed;inset:0;pointer-events:none;z-index:0;background:radial-gradient(60% 45% at 25% 30%,rgba(134,227,207,.10),transparent 70%),radial-gradient(55% 45% at 78% 72%,rgba(255,180,84,.09),transparent 70%)}
-  .bgfx::before{content:"";position:absolute;left:50%;top:50%;width:140vmax;height:140vmax;transform:translate(-50%,-50%);background:repeating-radial-gradient(circle,rgba(89,208,255,.05) 0 1px,transparent 1px 90px)}
-  .bgfx::after{content:"";position:absolute;left:50%;top:50%;width:140vmax;height:140vmax;margin:-70vmax 0 0 -70vmax;background:conic-gradient(from 0deg,rgba(89,208,255,.14),transparent 14%);border-radius:50%;animation:sweep 7s linear infinite}
-  @keyframes sweep{to{transform:rotate(360deg)}}
-  @media (prefers-reduced-motion:reduce){.bgfx::after{animation:none;opacity:.4}}
-  main{position:relative;z-index:1;width:min(100%,760px);text-align:center}
-  h1{font:700 clamp(30px,6vw,44px)/1.05 'Barlow Condensed',sans-serif;letter-spacing:.06em;margin:0 0 6px}
-  .sub{color:var(--mute);margin:0 0 28px}
-  .apps{display:grid;grid-template-columns:1fr 1fr;gap:16px}
-  @media (max-width:560px){.apps{grid-template-columns:1fr}}
-  a.app{display:flex;flex-direction:column;align-items:center;gap:14px;padding:28px 20px 24px;border-radius:22px;text-decoration:none;color:var(--fg);background:rgba(10,18,27,.82);border:1px solid var(--line);backdrop-filter:blur(8px);transition:transform .15s,border-color .15s,box-shadow .15s}
+  body{min-height:100vh;min-height:100dvh;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;padding:calc(20px + env(safe-area-inset-top)) 16px calc(20px + env(safe-area-inset-bottom));background:radial-gradient(70% 50% at 50% 20%,#0b2350 0,transparent 70%),radial-gradient(70% 50% at 50% 85%,#0a3438 0,transparent 70%),var(--bg)}
+  .apps{display:grid;gap:18px;width:min(100%,560px)}
+  @media (min-width:1000px) and (min-height:520px){.apps{grid-template-columns:1fr 1fr;width:min(100%,1180px)}}
+  a.app{display:block;position:relative;border-radius:5.2%/7.5%;overflow:hidden;transition:transform .18s,box-shadow .18s;-webkit-tap-highlight-color:transparent}
+  a.app img{display:block;width:100%;height:auto}
+  a.app::after{content:attr(data-cta);position:absolute;left:5.5%;bottom:9%;font:600 13px 'Barlow',sans-serif;letter-spacing:.04em;padding:7px 14px;border-radius:999px;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.25);backdrop-filter:blur(4px);color:#fff}
+  a.sky{box-shadow:0 0 0 1px rgba(90,150,255,.35),0 12px 40px rgba(20,80,200,.25)}
+  a.sea{box-shadow:0 0 0 1px rgba(90,220,200,.35),0 12px 40px rgba(20,160,150,.22)}
   a.app:hover,a.app:focus-visible{transform:translateY(-3px);outline:none}
-  a.sea:hover,a.sea:focus-visible{border-color:#86e3cf;box-shadow:0 10px 40px rgba(134,227,207,.16)}
-  a.fly:hover,a.fly:focus-visible{border-color:#ffb454;box-shadow:0 10px 40px rgba(255,180,84,.16)}
-  a.app img{width:112px;height:112px;border-radius:26px;box-shadow:0 8px 28px rgba(0,0,0,.45)}
-  a.app b{font:700 26px/1 'Barlow Condensed',sans-serif;letter-spacing:.08em}
-  a.app span{color:var(--mute)}
-  a.app .t{display:flex;flex-direction:column;gap:6px}
-  a.app em{font-style:normal;font-weight:600;font-size:14px;padding:9px 18px;border-radius:999px;margin-top:4px}
-  a.sea em{background:#163a3a;color:#a8f0de}
-  a.fly em{background:#3a2a12;color:#ffd08a}
-  @media (max-width:560px){a.app{flex-direction:row;text-align:left;padding:16px;gap:16px} a.app img{width:72px;height:72px;border-radius:18px} a.app em{display:none} a.app .t{display:flex;flex-direction:column;gap:6px}}
-  .remember{margin-top:22px;color:var(--mute);font-size:14px;display:inline-flex;gap:8px;align-items:center;cursor:pointer}
-  .remember input{accent-color:#86e3cf;width:18px;height:18px}
+  a.sky:hover,a.sky:focus-visible{box-shadow:0 0 0 2px #5a9bff,0 16px 50px rgba(40,110,255,.45)}
+  a.sea:hover,a.sea:focus-visible{box-shadow:0 0 0 2px #5fe3cc,0 16px 50px rgba(40,200,180,.4)}
+  .remember{color:var(--mute);font-size:14px;display:inline-flex;gap:8px;align-items:center;cursor:pointer}
+  .remember input{accent-color:#5fe3cc;width:18px;height:18px}
+  footer{color:var(--mute);font-size:13px;text-align:center;line-height:1.6}
+  footer b{color:#c9d6e3;font-weight:600}
 </style>
 </head>
 <body>
-<div class="bgfx"></div>
-<main>
-  <h1>LIVE KART</h1>
-  <p class="sub">Velg hva du vil følge med på</p>
+  <h1 style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)">Velg kart</h1>
   <div class="apps">
-    <a class="app sea" href="./" data-app="sea"><img src="icon.svg?v=2" alt=""><div class="t"><b>SEAPULSE</b><span>Skipstrafikk i sanntid</span></div><em>Åpne skipskartet</em></a>
-    <a class="app fly" href="https://seriksso-maker.github.io/flyradar/" data-app="fly"><img src="fly-icon.svg" alt=""><div class="t"><b>FLYBLIKK</b><span>Flytrafikk i sanntid</span></div><em>Åpne flykartet</em></a>
+    <a class="app sky" href="https://seriksso-maker.github.io/flyradar/" data-app="fly" data-cta="Åpne flykartet ›"><img src="start-sky.jpg" alt="SkyPuls – flytrafikk i sanntid" width="749" height="413"></a>
+    <a class="app sea" href="./" data-app="sea" data-cta="Åpne skipskartet ›"><img src="start-sea.jpg" alt="SeaPuls – skipstrafikk i sanntid" width="749" height="413"></a>
   </div>
   <label class="remember"><input type="checkbox" id="rem">Husk valget mitt neste gang</label>
-</main>
+  <footer>Utviklet av <b>Grøtbekklia AS</b><br>Versjon 1.0.0</footer>
 <script>
   const KEY = "livekart.valg";
   const get = () => { try { return localStorage.getItem(KEY); } catch { return null; } };
