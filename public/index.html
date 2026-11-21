@@ -147,7 +147,8 @@ async function poll() {
     ships = data.ships;
     const shown = render(data.now);
     const src = data.stats.source === "demo" ? "demo (simulert)" : "Kystverket";
-    const on = data.stats.connected;
+    const st2 = data.stats, fresh = Math.max(st2.lastData || 0, st2.lastRelay || 0);
+    const on = st2.connected || data.now - fresh < 20000;
     st.innerHTML = `<span class="dot ${on ? "on" : ""}"></span><b>${shown}</b> båter vist · ${src}${on ? "" : " · frakoblet"}`;
   } catch (e) {
     st.innerHTML = `<span class="dot"></span>Får ikke kontakt med serveren`;
