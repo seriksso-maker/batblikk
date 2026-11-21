@@ -40,6 +40,7 @@ export class AisHub extends DurableObject {
       for (const m of msgs) this.update(m);
       this.stats.relayed = (this.stats.relayed || 0) + msgs.length;
       this.stats.lastRelay = Date.now();
+      this.saveStatic();
       return new Response("ok");
     }
     this.ensureConnected();
@@ -61,7 +62,9 @@ export class AisHub extends DurableObject {
     for (const s of this.ships.values()) {
       if (s.seen && s.seen < cutoff) { delete s.seen; delete s.lat; delete s.lon; }
     }
-    await this.ctx.storage.setAlarm(Date.now() + ALARM_MS);
+    // Bare hold objektet i live hvis egen tilkobling faktisk har gitt data.
+    // Ellers sparer vi gratiskvoten; workeren mater objektet når noen ser på kartet.
+    if (this.stats.lastData) await this.ctx.storage.setAlarm(Date.now() + ALARM_MS);
   }
 
   saveStatic() {
