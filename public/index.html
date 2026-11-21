@@ -237,6 +237,24 @@
   .dock button.wxb.on,.styles button.wxb.on{color:#7cc8ff}
   .styles button.wxb.on{border-color:#3d7fb3;background:#10263a}
   @media (min-width:1000px){ #wxFc{left:calc(var(--lw) + 14px);bottom:76px;width:380px} }
+
+  /* ---- Webkameraer ---- */
+  .cam-ic{background:none;border:0}
+  .cam-ic div{width:28px;height:28px;border-radius:50%;background:#10263a;border:2px solid #59d0ff;display:flex;align-items:center;justify-content:center;box-shadow:0 1px 6px rgba(0,0,0,.5)}
+  .cam-ic div.h{border-color:#ffb454;background:#2a1f0d}
+  .leaflet-popup.camp .leaflet-popup-content-wrapper{background:#0a1420;color:var(--fg);border:1px solid var(--line);border-radius:12px;padding:0;overflow:hidden}
+  .leaflet-popup.camp .leaflet-popup-content{margin:0;width:300px!important}
+  .leaflet-popup.camp .leaflet-popup-tip{background:#0a1420}
+  .leaflet-popup.camp a.leaflet-popup-close-button{color:#fff;top:6px;right:6px;background:rgba(0,0,0,.55);border-radius:50%;width:24px;height:24px;line-height:22px;text-align:center}
+  .camp img{display:block;width:100%;height:169px;object-fit:cover;background:#111b25}
+  .camp .ct{padding:8px 12px 4px;font:700 17px var(--cond);letter-spacing:.02em}
+  .camp .cs{padding:0 12px 8px;color:var(--mute);font-size:12px}
+  .camp .cb{display:flex;gap:1px;background:var(--line);border-top:1px solid var(--line)}
+  .camp .cb a{flex:1;text-align:center;padding:9px 4px;background:#0a1420;color:var(--cyan)!important;font-weight:600;text-decoration:none}
+  #camNote{position:absolute;z-index:540;left:50%;transform:translateX(-50%);top:calc(64px + env(safe-area-inset-top));background:var(--panel);border:1px solid var(--line);border-radius:20px;padding:5px 12px;font-size:12.5px;color:#cfdbe6;display:none;white-space:nowrap}
+  body.cams #camNote:not(:empty){display:block}
+  @media (min-width:1000px){ .leaflet-bottom.leaflet-right .leaflet-control-zoom{margin-bottom:80px!important} }
+  @media (min-width:1000px){ #camNote{left:calc(var(--lw) + (100% - var(--lw) - var(--rw))/2);top:84px} }
 </style>
 </head>
 <body>
@@ -261,6 +279,8 @@
   <div class="chips2" id="baseChips"></div>
   <label class="h">Lag oppå kartet</label>
   <div class="chips2" id="ovChips"></div>
+  <label class="h">Webkameraer</label>
+  <div class="chips2"><button type="button" data-cam="1" style="grid-column:1/3">📷 Webkameraer ved havner</button></div>
   <label class="h">Hopp til område</label>
   <div class="chips2" id="regChips"></div>
 </section>
@@ -336,11 +356,13 @@
   <button type="button" data-style="light">☀️ Lyst</button>
   <button type="button" data-style="more">Flere kart …</button>
   <button type="button" class="wxb" data-wx="1">🌊 Vær og bølger</button>
+  <button type="button" class="wxb" data-cam="1">📷 Webkamera</button>
   <button type="button" class="rad" id="radarBtn2">📡 Radar</button>
 </div>
 <aside id="panel" hidden></aside>
 <div id="radarHud"></div>
 <div id="wxFc"></div>
+<div id="camNote"></div>
 
 <script src="vendor/leaflet/leaflet.js"></script>
 <script>
@@ -940,6 +962,46 @@ map.on("moveend", () => { if (!wx.on) return; clearTimeout(wx.deb); wx.deb = set
 map.on("click", e => { if (wx.on) wxForecast(e.latlng); });
 setInterval(() => { if (wx.on) { wxGrid(); wxForecast(wx.fcAt); } }, 15 * 60 * 1000);
 if (store.get("batblikk.wx") === "1") setWx(true);
+
+// ---- Webkameraer ved havner (Windy Webcams via serveren vår, så nøkkelen holdes hemmelig) ----
+const cam = { on:false, layer:null, deb:0, seq:0, seen:new Map() };
+const camIcon = h => L.divIcon({ className:"cam-ic", html:`<div class="${h ? "h" : ""}"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="${h ? "#ffb454" : "#59d0ff"}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8h3l1.5-2h9L18 8h3v11H3z"/><circle cx="12" cy="13" r="3.5"/></svg></div>`, iconSize:[28,28], iconAnchor:[14,14] });
+function camPopup(w) {
+  return `${w.img ? `<a href="${esc(w.page)}" target="_blank" rel="noopener"><img src="${esc(w.img)}" alt=""></a>` : ""}
+    <div class="ct">${esc(w.title || "Webkamera")}</div><div class="cs">${esc(w.city || "")}${w.harbor ? " · havnekamera" : ""}${w.updated ? " · bilde " + esc(new Date(w.updated).toLocaleTimeString("nb-NO", { hour:"2-digit", minute:"2-digit" })) : ""}</div>
+    <div class="cb">${w.live ? `<a href="${esc(w.live)}" target="_blank" rel="noopener">▶ Se live</a>` : ""}${w.day ? `<a href="${esc(w.day)}" target="_blank" rel="noopener">Siste døgn</a>` : ""}<a href="${esc(w.page)}" target="_blank" rel="noopener">Windy</a></div>`;
+}
+async function camLoad() {
+  if (!cam.on) return;
+  if (map.getZoom() < 7) { $("camNote").textContent = "Zoom inn for å se webkameraer"; return; }
+  const c = map.getCenter(), b = map.getBounds();
+  const r = Math.min(250, Math.max(10, b.getNorthEast().distanceTo(b.getSouthWest()) / 2000));
+  const seq = ++cam.seq;
+  $("camNote").textContent = "Henter webkameraer …";
+  try {
+    const j = await fetch(`${API}api/webcams?lat=${c.lat.toFixed(2)}&lon=${c.lng.toFixed(2)}&r=${Math.round(r)}`).then(x => x.json());
+    if (seq !== cam.seq || !cam.on) return;
+    if (j.error === "ingen nøkkel") { $("camNote").textContent = "Webkameraer er ikke slått på ennå (mangler nøkkel)"; return; }
+    if (j.error) { $("camNote").textContent = "Fikk ikke hentet webkameraer nå"; return; }
+    for (const w of j.webcams) {
+      if (cam.seen.has(w.id)) { cam.seen.get(w.id).w = w; continue; }
+      const m = L.marker([w.lat, w.lon], { icon:camIcon(w.harbor), zIndexOffset:2000, title:w.title }).addTo(cam.layer);
+      const o = { m, w }; cam.seen.set(w.id, o);
+      m.bindPopup(() => camPopup(o.w), { className:"camp", maxWidth:300, minWidth:300 });
+    }
+    $("camNote").textContent = j.webcams.length ? "" : "Ingen webkameraer her – prøv et annet sted";
+  } catch { if (seq === cam.seq) $("camNote").textContent = "Fikk ikke hentet webkameraer nå"; }
+}
+function setCam(on) {
+  cam.on = on; document.body.classList.toggle("cams", on);
+  for (const b of document.querySelectorAll("[data-cam]")) b.classList.toggle("on", on);
+  if (!cam.layer) cam.layer = L.layerGroup();
+  if (on) { cam.layer.addTo(map); camLoad(); } else { cam.layer.remove(); $("camNote").textContent = ""; }
+  store.set("batblikk.cam", on ? "1" : "0");
+}
+for (const b of document.querySelectorAll("[data-cam]")) b.addEventListener("click", () => { closeSheets(); setCam(!cam.on); });
+map.on("moveend", () => { if (!cam.on) return; clearTimeout(cam.deb); cam.deb = setTimeout(camLoad, 600); });
+if (store.get("batblikk.cam") === "1") setCam(true);
 renderTypeChips();
 loop();
 </script>

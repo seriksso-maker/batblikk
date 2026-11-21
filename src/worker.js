@@ -333,9 +333,9 @@ async function aisstreamOnce(env, hub) {
 }
 
 export default {
-  async fetch(request, env) {
+  async fetch(request, env, ctx) {
     try {
-      const res = await handle(request, env);
+      const res = await handle(request, env, ctx);
       if (!new URL(request.url).pathname.startsWith("/api/")) return res;
       // Tillat at siden på GitHub Pages (eller andre steder) henter båtdataene
       const out = new Response(res.body, res);
@@ -347,9 +347,43 @@ export default {
   },
 };
 
-async function handle(request, env) {
+// ---- Webkameraer ved havner: Windy Webcams API (gratis nøkkel som hemmelighet WINDY_KEY) ----
+async function webcams(url, env, ctx) {
+  if (!env.WINDY_KEY) return Response.json({ error: "ingen nøkkel", webcams: [] });
+  const lat = Number(url.searchParams.get("lat")), lon = Number(url.searchParams.get("lon"));
+  const r = Math.max(5, Math.min(250, Number(url.searchParams.get("r")) || 100));
+  if (!isFinite(lat) || !isFinite(lon)) return Response.json({ error: "mangler posisjon", webcams: [] }, { status: 400 });
+  // Rund av så nærliggende forespørsler deler mellomlager
+  const key = `https://cache.batblikk/webcams/${lat.toFixed(1)}/${lon.toFixed(1)}/${Math.round(r / 25) * 25}`;
+  const cache = caches.default;
+  const hit = await cache.match(key);
+  if (hit) return hit;
+  const api = "https://api.windy.com/webcams/api/v3/webcams?" + new URLSearchParams({
+    nearby: `${lat.toFixed(2)},${lon.toFixed(2)},${Math.round(r / 25) * 25 || 25}`,
+    categories: "harbor,coast,beach,water,lake,bay",
+    include: "images,location,player,urls,categories",
+    limit: "50", lang: "no",
+  });
+  const res = await fetch(api, { headers: { "x-windy-api-key": env.WINDY_KEY } });
+  if (!res.ok) return Response.json({ error: "Windy svarte " + res.status, webcams: [] });
+  const j = await res.json();
+  const list = (j.webcams || []).map((w) => ({
+    id: w.webcamId, title: w.title, lat: w.location?.latitude, lon: w.location?.longitude, city: w.location?.city,
+    harbor: (w.categories || []).some((c) => c.id === "harbor"),
+    img: w.images?.current?.preview || w.images?.current?.thumbnail || null,
+    day: w.player?.day || null, live: w.player?.live || null,
+    page: w.urls?.detail || `https://www.windy.com/webcams/${w.webcamId}`,
+    updated: w.lastUpdatedOn || null,
+  })).filter((w) => w.lat != null);
+  const out = Response.json({ webcams: list }, { headers: { "Cache-Control": "public, max-age=600" } });
+  ctx.waitUntil(cache.put(key, out.clone()));
+  return out;
+}
+
+async function handle(request, env, ctx) {
   {
     const url = new URL(request.url);
+    if (url.pathname === "/api/webcams") return webcams(url, env, ctx);
     if (url.pathname === "/api/track") {
       return hubStub(env).fetch(request);
     }
