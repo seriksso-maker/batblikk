@@ -298,6 +298,8 @@
   <div class="chips2" id="ovChips"></div>
   <label class="h">Webkameraer</label>
   <div class="chips2"><button type="button" data-cam="1" style="grid-column:1/3">📷 Webkameraer ved havner</button></div>
+  <label class="h">3D</label>
+  <div class="chips2"><button type="button" data-3d="1" style="grid-column:1/3">🧊 3D-kart med terreng</button></div>
   <label class="h">Hopp til område</label>
   <div class="chips2" id="regChips"></div>
 </section>
@@ -375,6 +377,7 @@
   <span class="sep"></span><button type="button" class="wxb" data-wx="1">🌊 Vær</button>
   <button type="button" class="wxb" data-cam="1">📷 Kamera</button>
   <button type="button" class="rad" id="radarBtn2">📡 Radar</button>
+  <button type="button" class="wxb" data-3d="1">🧊 3D</button>
 </div>
 <aside id="panel" hidden></aside>
 <div id="radarHud"></div>
@@ -648,6 +651,7 @@ function showPanel() {
       <button type="button" data-act="track" class="${on ? "on" : ""}">${on ? "Slutt å spore" : "Spor ruten"}</button>
       ${on ? `<button type="button" data-act="follow" class="f ${tracking.follow ? "on" : ""}">${tracking.follow ? "Følger" : "Følg båten"}</button>` : ""}
       <button type="button" data-act="zoom">Zoom inn</button>
+      <button type="button" data-act="3d">🧊 Følg i 3D</button>
     </div>`;
   $("panel").hidden = false;
 }
@@ -658,7 +662,17 @@ $("panel").addEventListener("click", e => {
   else if (a === "track" && s) { tracking && tracking.mmsi === s.mmsi ? stopTracking() : startTracking(s.mmsi); showPanel(); }
   else if (a === "follow" && tracking) { tracking.follow = !tracking.follow; $("followChk").checked = tracking.follow; updateTrack(); showPanel(); }
   else if (a === "zoom" && s) map.flyTo([s.lat, s.lon], 14, { duration:.8 });
+  else if (a === "3d" && s) go3D(s.mmsi);
 });
+function go3D(mmsi) {
+  closeSheets();
+  if (window.open3D) return window.open3D(mmsi);
+  const sc = document.createElement("script"); sc.src = "v3d.js";
+  sc.onload = () => window.open3D(mmsi);
+  sc.onerror = () => alert("Klarte ikke å laste 3D-visningen.");
+  document.head.appendChild(sc);
+}
+for (const b of document.querySelectorAll("[data-3d]")) b.addEventListener("click", () => go3D(null));
 
 // ---- Bilder (Wikidata → Wikimedia Commons) ----
 const photos = new Map();
