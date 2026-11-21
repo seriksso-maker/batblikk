@@ -41,8 +41,16 @@ export class AisHub extends DurableObject {
   }
 
   async fetch(request) {
-    const url = new URL(request.url);
     if (Number(request.headers.get("x-batblikk-version")) > VERSION) this.ctx.abort("ny versjon av koden");
+    try {
+      return await this.handle(request);
+    } catch (e) {
+      return Response.json({ error: "hub: " + String((e && e.stack) || e) }, { status: 500 });
+    }
+  }
+
+  async handle(request) {
+    const url = new URL(request.url);
     // Meldinger som workeren selv har lest fra Kystverket (reserve når objektet ikke når fram selv)
     if (request.method === "POST" && url.pathname === "/ingest") {
       const msgs = await request.json();
@@ -257,6 +265,16 @@ async function digitrafficOnce(hub) {
 
 export default {
   async fetch(request, env) {
+    try {
+      return await handle(request, env);
+    } catch (e) {
+      return Response.json({ error: String((e && e.stack) || e) }, { status: 500, headers: { "Cache-Control": "no-store" } });
+    }
+  },
+};
+
+async function handle(request, env) {
+  {
     const url = new URL(request.url);
     if (url.pathname === "/api/track") {
       return hubStub(env).fetch(request);
@@ -286,5 +304,5 @@ export default {
       return Response.json(data, { headers: { "Cache-Control": "no-store" } });
     }
     return env.ASSETS.fetch(request);
-  },
-};
+  }
+}
