@@ -354,13 +354,13 @@ async function webcams(url, env, ctx) {
   const r = Math.max(5, Math.min(250, Number(url.searchParams.get("r")) || 100));
   if (!isFinite(lat) || !isFinite(lon)) return Response.json({ error: "mangler posisjon", webcams: [] }, { status: 400 });
   // Rund av så nærliggende forespørsler deler mellomlager
-  const key = `https://cache.batblikk/webcams/${lat.toFixed(1)}/${lon.toFixed(1)}/${Math.round(r / 25) * 25}`;
+  const key = `https://cache.batblikk/webcams/${lat.toFixed(1)}/${lon.toFixed(1)}/${Math.round(r / 25) * 25}/${url.searchParams.get("cat") || ""}`;
   const cache = caches.default;
   const hit = await cache.match(key);
   if (hit) return hit;
   const api = "https://api.windy.com/webcams/api/v3/webcams?" + new URLSearchParams({
     nearby: `${lat.toFixed(2)},${lon.toFixed(2)},${Math.round(r / 25) * 25 || 25}`,
-    categories: "port,coast,beach,lake",
+    ...(url.searchParams.get("cat") === "alle" ? {} : { categories: url.searchParams.get("cat") || "port,coast,beach,lake" }),
     include: "images,location,player,urls,categories",
     limit: "50", lang: "nb",
   });
@@ -375,7 +375,7 @@ async function webcams(url, env, ctx) {
     page: w.urls?.detail || `https://www.windy.com/webcams/${w.webcamId}`,
     updated: w.lastUpdatedOn || null,
   })).filter((w) => w.lat != null);
-  const out = Response.json({ webcams: list }, { headers: { "Cache-Control": "public, max-age=600" } });
+  const out = Response.json({ total: j.total, webcams: list }, { headers: { "Cache-Control": "public, max-age=600" } });
   ctx.waitUntil(cache.put(key, out.clone()));
   return out;
 }
