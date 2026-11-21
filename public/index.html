@@ -860,7 +860,7 @@ $("radarBtn2").onclick = () => $("radarBtn").click();
 applyMap();
 
 // ---- Live vær og bølger (Open-Meteo: værmodell + havmodell, gratis, ingen nøkkel) ----
-const WMO = c => c == null ? "" : c === 0 ? "☀️" : c <= 2 ? "🌤️" : c === 3 ? "☁️" : c <= 48 ? "🌫️" : c <= 57 ? "🌦️" : c <= 67 ? "🌧️" : c <= 77 ? "🌨️" : c <= 82 ? "🌧️" : c <= 86 ? "🌨️" : "⛈️";
+const WMO = (c, day = 1) => c == null ? "" : c === 0 ? (day ? "☀️" : "🌙") : c <= 2 ? (day ? "🌤️" : "☁️") : c === 3 ? "☁️" : c <= 48 ? "🌫️" : c <= 57 ? "🌦️" : c <= 67 ? "🌧️" : c <= 77 ? "🌨️" : c <= 82 ? "🌧️" : c <= 86 ? "🌨️" : "⛈️";
 const windCol = v => v < 4 ? "#7fd3ff" : v < 8 ? "#6be08f" : v < 14 ? "#ffd23f" : v < 21 ? "#ff9a3c" : "#ff4d4d"; // m/s
 const wx = { on:false, layer:null, seq:0, deb:0, cache:new Map(), fcAt:null };
 map.createPane("wx"); map.getPane("wx").style.zIndex = 450; map.getPane("wx").style.pointerEvents = "none";
@@ -885,7 +885,7 @@ async function wxGrid() {
   const q = `latitude=${la.join(",")}&longitude=${lo.join(",")}`, seq = ++wx.seq;
   try {
     const [w, m] = await Promise.all([
-      wxGet(`https://api.open-meteo.com/v1/forecast?${q}&current=temperature_2m,weather_code,wind_speed_10m,wind_direction_10m,wind_gusts_10m&wind_speed_unit=ms&timezone=auto`),
+      wxGet(`https://api.open-meteo.com/v1/forecast?${q}&current=temperature_2m,weather_code,is_day,wind_speed_10m,wind_direction_10m,wind_gusts_10m&wind_speed_unit=ms&timezone=auto`),
       wxGet(`https://marine-api.open-meteo.com/v1/marine?${q}&current=wave_height,wave_direction,sea_surface_temperature&timezone=auto`).catch(() => null),
     ]);
     if (seq !== wx.seq || !wx.on) return;
@@ -896,7 +896,7 @@ async function wxGrid() {
       const mc = M[i] && M[i].current;
       const v = cu.wind_speed_10m, d = cu.wind_direction_10m;
       const arrow = v != null ? `<svg width="18" height="18" viewBox="0 0 24 24" style="transform:rotate(${Math.round((d || 0) + 180)}deg)"><path d="M12 2l6 16-6-3.5L6 18z" fill="${windCol(v)}" stroke="#000" stroke-width="1"/></svg>` : "";
-      let html = `<div class="wxc"><div class="r"><span class="e">${WMO(cu.weather_code)}</span>${cu.temperature_2m != null ? Math.round(cu.temperature_2m) + "°" : ""}</div>`;
+      let html = `<div class="wxc"><div class="r"><span class="e">${WMO(cu.weather_code, cu.is_day)}</span>${cu.temperature_2m != null ? Math.round(cu.temperature_2m) + "°" : ""}</div>`;
       if (v != null) html += `<div class="r">${arrow}<span style="color:${windCol(v)}">${Math.round(v)}${cu.wind_gusts_10m != null ? `<small style="color:#9aa8b5">(${Math.round(cu.wind_gusts_10m)})</small>` : ""} m/s</span></div>`;
       if (mc && mc.wave_height != null) html += `<div class="r wv">〰 ${mc.wave_height.toFixed(1)} m</div>`;
       if (mc && mc.sea_surface_temperature != null) html += `<div class="r sst">🌡 sjø ${Math.round(mc.sea_surface_temperature)}°</div>`;
@@ -911,7 +911,7 @@ async function wxForecast(ll) {
   const q = `latitude=${ll.lat.toFixed(3)}&longitude=${ll.lng.toFixed(3)}`;
   try {
     const [w, m] = await Promise.all([
-      wxGet(`https://api.open-meteo.com/v1/forecast?${q}&hourly=temperature_2m,weather_code,wind_speed_10m,wind_direction_10m&wind_speed_unit=ms&forecast_hours=27&timezone=auto`),
+      wxGet(`https://api.open-meteo.com/v1/forecast?${q}&hourly=temperature_2m,weather_code,is_day,wind_speed_10m,wind_direction_10m&wind_speed_unit=ms&forecast_hours=27&timezone=auto`),
       wxGet(`https://marine-api.open-meteo.com/v1/marine?${q}&hourly=wave_height,sea_surface_temperature&forecast_hours=27&timezone=auto`).catch(() => null),
     ]);
     if (wx.fcAt !== ll) return;
@@ -919,7 +919,7 @@ async function wxForecast(ll) {
     const cells = [];
     for (let i = 0; i < h.time.length && cells.length < 9; i += 3) {
       const v = h.wind_speed_10m[i], d = h.wind_direction_10m[i], wv = mh && mh.wave_height ? mh.wave_height[i] : null;
-      cells.push(`<div><span class="t">${h.time[i].slice(11, 13)}</span><span class="e">${WMO(h.weather_code[i])}</span><b>${Math.round(h.temperature_2m[i])}°</b><span style="color:${windCol(v)}"><svg width="10" height="10" viewBox="0 0 24 24" style="transform:rotate(${Math.round(d + 180)}deg)"><path d="M12 2l6 16-6-3.5L6 18z" fill="currentColor"/></svg>${Math.round(v)}</span>${wv != null ? `<span class="wv" style="display:block">${wv.toFixed(1)}m</span>` : ""}</div>`);
+      cells.push(`<div><span class="t">${h.time[i].slice(11, 13)}</span><span class="e">${WMO(h.weather_code[i], h.is_day ? h.is_day[i] : 1)}</span><b>${Math.round(h.temperature_2m[i])}°</b><span style="color:${windCol(v)}"><svg width="10" height="10" viewBox="0 0 24 24" style="transform:rotate(${Math.round(d + 180)}deg)"><path d="M12 2l6 16-6-3.5L6 18z" fill="currentColor"/></svg>${Math.round(v)}</span>${wv != null ? `<span class="wv" style="display:block">${wv.toFixed(1)}m</span>` : ""}</div>`);
     }
     const sst = mh && mh.sea_surface_temperature ? mh.sea_surface_temperature[0] : null;
     $("wxFc").innerHTML = `<h5>Værvarsel neste døgn <span>${ll.lat.toFixed(2)}° N ${ll.lng.toFixed(2)}° Ø${sst != null ? ` · sjø ${Math.round(sst)}°` : ""}</span></h5><div class="fc">${cells.join("")}</div><div class="leg">Klokkeslett · vær · luft °C · vind m/s · bølger m. Trykk i kartet for varsel et annet sted.</div>`;
