@@ -275,12 +275,18 @@ async function digitrafficOnce(hub) {
   if (msgs.length) await hub.fetch("https://hub/ingest", { method: "POST", body: JSON.stringify(msgs) });
 }
 
-// ---- Danmark og Sverige: aisstream.io (gratis konto, nøkkel lagres som hemmelighet AISSTREAM_KEY) ----
+// ---- Danmark, Sverige, Storbritannia, Irland, Benelux, Tyskland, Færøyene og Island: aisstream.io (gratis konto, nøkkel lagres som hemmelighet AISSTREAM_KEY) ----
 // Uten nøkkel hoppes dette over. Workeren lytter noen sekunder per oppdatering.
 const AS_READ_MS = 4000;
 const AS_EVERY_MS = 12000;
 let lastAs = 0, asBusyUntil = 0, asError = null;
-const AS_BOXES = [[[53.5, 2.5], [59.5, 16.5]], [[55, 10.5], [66, 24.5]]]; // Danmark/Skagerrak/Kattegat, Sverige/Østersjøen
+const AS_BOXES = [
+  [[53.5, 2.5], [59.5, 16.5]],   // Danmark, Skagerrak, Kattegat
+  [[55, 10.5], [66, 24.5]],      // Sverige, Østersjøen
+  [[49, -11], [61, 2.5]],        // Storbritannia, Irland, Nordsjøen vest, Den engelske kanal
+  [[50.5, 2.5], [53.5, 9.5]],    // Belgia, Nederland, Tyskebukta
+  [[61, -25], [67.5, -5]],       // Færøyene og Island
+];
 
 async function aisstreamOnce(env, hub) {
   const msgs = [];

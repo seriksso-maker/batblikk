@@ -505,6 +505,10 @@ const REGIONS = [
   ["Ålesund", [[62.3,5.6],[62.65,6.6]]], ["Trondheim", [[63.3,9.6],[63.75,10.9]]],
   ["Lofoten", [[67.8,12.5],[68.6,15.8]]], ["Tromsø", [[69.4,18.3],[69.9,19.6]]],
   ["Skagerrak", [[57,7.5],[59.3,11.5]]], ["Danmark", [[54.5,7.8],[57.8,13]]], ["Østersjøen", [[54,13],[66,30]]],
+  ["Finland", [[59.5,20],[66,28]]], ["Nordsjøen", [[51,-3],[61,9]]],
+  ["Storbritannia", [[49.8,-8.5],[59.5,2]]], ["Irland", [[51.3,-10.8],[55.5,-5.3]]],
+  ["Den engelske kanal", [[49.3,-5.8],[51.5,2.5]]], ["Nederland og Belgia", [[51,2.5],[53.8,7.3]]],
+  ["Tyskland", [[53.3,6.5],[55.2,14.5]]], ["Island og Færøyene", [[61.3,-25],[67.3,-6]]],
 ];
 let baseId = BASES[store.get("batblikk.base2")] ? store.get("batblikk.base2") : "dark";
 let ovOn = new Set((() => { try { return JSON.parse(store.get("batblikk.ov2") || "[]"); } catch { return []; } })().filter(k => OVERLAYS[k]));
@@ -597,19 +601,39 @@ function iconFor(s, cat) {
     icon:L.divIcon({ className:"ship-icon", html:shipSvg(cat.id, color, size, rot, !moving && !trk && !sel), iconSize:[size,size], iconAnchor:[size/2,size/2] }) };
 }
 
+const dotR = L.canvas({ padding:0.3, tolerance:4 });
 function render() {
   const counts = Object.fromEntries(CATS.map(c => [c.id, 0]));
   const seen = new Set();
   const labels = showNames && map.getZoom() >= 11;
+  const vb = map.getBounds().pad(0.25);
+  const dots = map.getZoom() <= 6;
   let shown = 0;
   for (const s of ships) {
     const cat = catOf(s.shipType);
     counts[cat.id]++;
     const special = (tracking && tracking.mmsi === s.mmsi) || selected === s.mmsi;
     if (!special && (!enabled.has(cat.id) || (movingOnly && !isMoving(s)) || !passes(s))) continue;
+    if (!special && !vb.contains([s.lat, s.lon])) continue;
     seen.add(s.mmsi); shown++;
-    const { key, icon } = iconFor(s, cat);
     let m = markers.get(s.mmsi);
+    if (dots && !special) {
+      // Langt ute: lette prikker på ett lerret, så kartet tåler mange tusen båter
+      const col = cat.color;
+      if (m && !m.dot) { m.marker.remove(); m = null; }
+      if (!m) {
+        const marker = L.circleMarker([s.lat, s.lon], { renderer:dotR, radius:3, stroke:false, fillColor:col, fillOpacity:.9 }).addTo(map);
+        marker.on("click", () => select(s.mmsi));
+        m = { marker, key:col, lbl:false, dot:true }; markers.set(s.mmsi, m);
+      } else {
+        m.marker.setLatLng([s.lat, s.lon]);
+        if (m.key !== col) { m.marker.setStyle({ fillColor:col }); m.key = col; }
+      }
+      m.ship = s;
+      continue;
+    }
+    const { key, icon } = iconFor(s, cat);
+    if (m && m.dot) { m.marker.remove(); m = null; }
     if (!m) {
       const marker = L.marker([s.lat, s.lon], { icon, title:s.name || String(s.mmsi), riseOnHover:true }).addTo(map);
       marker.on("click", () => select(s.mmsi));
@@ -944,7 +968,7 @@ $("radarBtn").onclick = () => { closeSheets(); setRadar(!radar.on); };
 if (store.get("batblikk.radar") === "1") setRadar(true);
 
 // ---- PC-oppsett: sidepaneler ----
-const SRC_NAMES = { no:"Kystverket", fi:"Finland (Digitraffic)", as:"Danmark/Sverige (aisstream)" };
+const SRC_NAMES = { no:"Kystverket", fi:"Finland (Digitraffic)", as:"aisstream (Europa)" };
 var liveState = { cls:"load", st:"Kobler til", sub:"Henter posisjoner …" };
 let lastCounts = null;
 function renderSides(allCounts) {
@@ -1008,7 +1032,7 @@ $("rTog").onclick = () => { document.body.classList.toggle("rc"); $("rTog").text
 if (store.get("batblikk.lc") === "1") { document.body.classList.add("lc"); $("lTog").textContent = "›"; }
 if (store.get("batblikk.rc") === "1") { document.body.classList.add("rc"); $("rTog").textContent = "‹"; }
 map.invalidateSize();
-map.on("moveend", () => renderSides());
+map.on("moveend", () => { clearTimeout(window.__mvT); window.__mvT = setTimeout(render, 120); });
 addEventListener("resize", () => { map.invalidateSize(); renderSides(); });
 $("radarBtn2").onclick = () => $("radarBtn").click();
 applyMap();
