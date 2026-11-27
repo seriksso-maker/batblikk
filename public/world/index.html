@@ -1,0 +1,533 @@
+<!doctype html>
+<html lang="no">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#050d1c">
+<title>WorldPuls LIVE</title>
+<link rel="icon" type="image/svg+xml" href="../icon.svg?v=2">
+<link rel="apple-touch-icon" href="../apple-touch-icon.png?v=2">
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="WorldPuls">
+<link rel="stylesheet" href="../vendor/leaflet/leaflet.css">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600&family=Barlow+Condensed:wght@500;600;700&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Kontrollrom: kartet fyller skjermen, statuslinje øverst, kartlag som brikker nederst, ark som glir opp */
+:root{
+  --bg:#050d1c; --panel:rgba(8,17,32,.92); --panel2:rgba(14,27,48,.96); --line:#1b2c46; --fg:#e6eef4; --mute:#7f93ab;
+  --accent:#5fe3cc; --sky:#5a9bff; --red:#ff5a5f; --orange:#ffa53d; --yellow:#ffd84d; --green:#4fd18b;
+  --f-disp:'Barlow Condensed',system-ui,sans-serif; --f-body:'Barlow',system-ui,sans-serif; --f-mono:'JetBrains Mono',ui-monospace,Menlo,monospace;
+  --top:env(safe-area-inset-top,0px); --bot:env(safe-area-inset-bottom,0px);
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0;background:var(--bg);color:var(--fg);font:15px/1.4 var(--f-body);overflow:hidden;-webkit-text-size-adjust:100%}
+button{font:inherit;color:inherit}
+#map{position:fixed;inset:0;background:#050b16}
+.leaflet-container{background:#050b16;font-family:var(--f-body)}
+.leaflet-control-attribution{background:rgba(5,13,28,.7)!important;color:var(--mute)!important;font-size:10px}
+.leaflet-control-attribution a{color:var(--mute)!important}
+.leaflet-bottom.leaflet-right{bottom:calc(var(--bot) + 64px)}
+
+/* Statuslinje */
+#hud{position:fixed;z-index:1000;top:0;left:0;right:0;padding:calc(var(--top) + 8px) max(10px,env(safe-area-inset-right)) 8px max(10px,env(safe-area-inset-left));display:flex;align-items:center;gap:8px;background:linear-gradient(180deg,rgba(5,13,28,.95),rgba(5,13,28,.6) 70%,transparent);pointer-events:none}
+#hud > *{pointer-events:auto}
+.brand{display:flex;flex-direction:column;line-height:1;min-width:0}
+.brand b{font:700 20px var(--f-disp);letter-spacing:.06em}
+.brand b span{color:var(--accent)}
+.brand small{font:500 11px var(--f-mono);color:var(--mute);letter-spacing:.04em;margin-top:3px;white-space:nowrap}
+.dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--green);box-shadow:0 0 8px var(--green);margin-right:5px;vertical-align:1px;animation:pulse 2s infinite}
+@keyframes pulse{50%{opacity:.35}}
+.sp{flex:1}
+.ib{position:relative;width:40px;height:40px;border-radius:10px;border:1px solid var(--line);background:var(--panel);display:grid;place-items:center;cursor:pointer;flex:none}
+.ib svg{width:20px;height:20px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.ib:focus-visible,.chip:focus-visible,.row:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.badge{position:absolute;top:-5px;right:-5px;min-width:18px;height:18px;padding:0 5px;border-radius:9px;background:var(--red);color:#fff;font:600 11px/18px var(--f-mono);text-align:center}
+.badge[hidden]{display:none}
+
+/* Solstripe */
+#sun{position:fixed;z-index:999;top:calc(var(--top) + 58px);left:max(10px,env(safe-area-inset-left));display:flex;gap:6px;flex-wrap:wrap;max-width:calc(100vw - 20px)}
+.gauge{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:4px 8px;font:500 11px var(--f-mono);color:var(--mute);white-space:nowrap}
+.gauge b{color:var(--fg);font-weight:600;margin-left:4px}
+.gauge.warn{border-color:var(--orange)} .gauge.warn b{color:var(--orange)}
+.gauge.crit{border-color:var(--red)} .gauge.crit b{color:var(--red)}
+
+/* Kartlag-brikker */
+#dock{position:fixed;z-index:1000;left:0;right:0;bottom:0;padding:10px 0 calc(var(--bot) + 10px);background:linear-gradient(0deg,rgba(5,13,28,.96),rgba(5,13,28,.75) 70%,transparent)}
+#chips{display:flex;gap:7px;overflow-x:auto;padding:0 max(10px,env(safe-area-inset-left));scrollbar-width:none;-webkit-overflow-scrolling:touch;scroll-snap-type:x proximity}
+#chips::-webkit-scrollbar{display:none}
+.chip{flex:none;scroll-snap-align:start;display:flex;align-items:center;gap:7px;height:40px;padding:0 12px;border-radius:20px;border:1px solid var(--line);background:var(--panel);cursor:pointer;font:600 14px var(--f-disp);letter-spacing:.03em;white-space:nowrap;user-select:none;-webkit-tap-highlight-color:transparent}
+.chip .sw{width:9px;height:9px;border-radius:50%;background:var(--c);opacity:.35}
+.chip .n{font:500 11px var(--f-mono);color:var(--mute)}
+.chip.on{border-color:var(--c);background:color-mix(in srgb,var(--c) 16%,var(--panel))}
+.chip.on .sw{opacity:1;box-shadow:0 0 8px var(--c)}
+.chip.locked{opacity:.5}
+.chip.err .n{color:var(--red)}
+
+/* Ark (hendelser / kilder) */
+.sheet{position:fixed;z-index:1100;left:0;right:0;bottom:0;max-height:72vh;max-height:72dvh;display:flex;flex-direction:column;background:var(--panel2);border-top:1px solid var(--line);border-radius:16px 16px 0 0;box-shadow:0 -10px 40px rgba(0,0,0,.5);transform:translateY(105%);transition:transform .25s ease;padding-bottom:var(--bot)}
+.sheet.open{transform:none}
+@media (min-width:760px){.sheet{left:auto;right:12px;bottom:auto;top:calc(var(--top) + 60px);width:400px;max-height:calc(100vh - 160px);border:1px solid var(--line);border-radius:14px;transform:translateX(calc(100% + 20px))}.sheet.open{transform:none}}
+.sheet header{display:flex;align-items:center;gap:10px;padding:14px 16px 10px}
+.sheet h2{margin:0;font:700 18px var(--f-disp);letter-spacing:.05em;text-transform:uppercase}
+.sheet header .sp{flex:1}
+.sheet .close{border:0;background:none;color:var(--mute);font-size:24px;line-height:1;cursor:pointer;padding:4px 8px}
+.sheet .body{overflow-y:auto;padding:0 16px 16px;-webkit-overflow-scrolling:touch}
+.empty{color:var(--mute);padding:18px 0;text-align:center}
+.row{display:grid;grid-template-columns:4px 1fr auto;gap:10px;align-items:start;padding:10px 0;border-bottom:1px solid var(--line);cursor:pointer}
+.row .bar{align-self:stretch;border-radius:2px;background:var(--lv)}
+.row .t{font-weight:600;min-width:0}
+.row .s{font-size:13px;color:var(--mute);margin-top:2px}
+.row time{font:500 11px var(--f-mono);color:var(--mute);white-space:nowrap}
+.src{padding:10px 0;border-bottom:1px solid var(--line);display:grid;gap:3px}
+.src .h{display:flex;gap:8px;align-items:center;font:600 15px var(--f-disp);letter-spacing:.03em}
+.src .h .sw{width:9px;height:9px;border-radius:50%;background:var(--c)}
+.src .h .st{margin-left:auto;font:500 11px var(--f-mono);color:var(--mute)}
+.src .h .st.ok{color:var(--green)} .src .h .st.bad{color:var(--red)}
+.src p{margin:0;font-size:13px;color:var(--mute)}
+.src p b{color:var(--fg);font-weight:500}
+.note{font-size:13px;color:var(--mute);margin:12px 0 0}
+.tg{display:flex;align-items:center;gap:10px;padding:10px 0;font-size:14px}
+.tg input{accent-color:var(--accent);width:18px;height:18px}
+
+/* Varsel-toast */
+#toast{position:fixed;z-index:1200;left:50%;top:calc(var(--top) + 58px);transform:translate(-50%,-150%);transition:transform .3s;width:min(92vw,420px);background:var(--panel2);border:1px solid var(--lv,var(--line));border-left-width:4px;border-radius:10px;padding:10px 12px;box-shadow:0 10px 30px rgba(0,0,0,.5);cursor:pointer}
+#toast.show{transform:translate(-50%,0)}
+#toast b{display:block;font:700 13px var(--f-disp);letter-spacing:.08em;text-transform:uppercase;color:var(--lv)}
+#hint{position:fixed;z-index:999;left:50%;bottom:calc(var(--bot) + 70px);transform:translateX(-50%);background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:5px 12px;font-size:12px;color:var(--mute);white-space:nowrap}
+
+/* Popup */
+.leaflet-popup-content-wrapper,.leaflet-popup-tip{background:var(--panel2);color:var(--fg);border:1px solid var(--line);box-shadow:0 8px 24px rgba(0,0,0,.5)}
+.leaflet-popup-content{margin:12px 14px;font-size:13px;line-height:1.45;min-width:180px}
+.leaflet-popup-content h3{margin:0 0 4px;font:700 16px var(--f-disp);letter-spacing:.03em}
+.leaflet-popup-content .k{color:var(--mute)}
+.leaflet-popup-content table{border-collapse:collapse;font-variant-numeric:tabular-nums}
+.leaflet-popup-content td{padding:1px 10px 1px 0;vertical-align:top}
+.leaflet-popup-content img{display:block;width:100%;border-radius:6px;margin:6px 0}
+.leaflet-popup-content a{color:var(--accent)}
+.leaflet-container a.leaflet-popup-close-button{color:var(--mute)}
+.lbl{background:none;border:0;box-shadow:none;color:var(--fg);font:600 11px var(--f-mono);text-shadow:0 0 3px #000,0 0 6px #000;padding:0}
+.lbl::before{display:none}
+.ico{background:none;border:0}
+@media (prefers-reduced-motion:reduce){.dot{animation:none}.sheet,#toast{transition:none}}
+</style>
+</head>
+<body>
+<div id="map" aria-label="Verdenskart med sanntidsdata"></div>
+
+<div id="hud">
+  <div class="brand"><b>WORLD<span>PULS</span> LIVE</b><small><span class="dot" id="live"></span><span id="clock">--:--:-- UTC</span></small></div>
+  <div class="sp"></div>
+  <button class="ib" id="bAlerts" aria-label="Vis hendelser"><svg viewBox="0 0 24 24"><path d="M6 8a6 6 0 1 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg><span class="badge" id="nAlerts" hidden>0</span></button>
+  <button class="ib" id="bSrc" aria-label="Vis datakilder og innstillinger"><svg viewBox="0 0 24 24"><ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v14c0 1.7 3.6 3 8 3s8-1.3 8-3V5"/><path d="M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3"/></svg></button>
+  <button class="ib" id="bFull" aria-label="Fullskjerm"><svg viewBox="0 0 24 24"><path d="M8 3H5a2 2 0 0 0-2 2v3M21 8V5a2 2 0 0 0-2-2h-3M3 16v3a2 2 0 0 0 2 2h3M16 21h3a2 2 0 0 0 2-2v-3"/></svg></button>
+</div>
+
+<div id="sun" aria-label="Solaktivitet">
+  <span class="gauge" id="gKp">Kp<b>–</b></span>
+  <span class="gauge" id="gX">Røntgen<b>–</b></span>
+  <span class="gauge" id="gW">Solvind<b>–</b></span>
+</div>
+
+<div id="hint" hidden></div>
+<div id="toast" role="status" aria-live="polite"></div>
+
+<div id="dock"><div id="chips" role="toolbar" aria-label="Kartlag"></div></div>
+
+<section class="sheet" id="sAlerts" aria-label="Hendelser">
+  <header><h2>Hendelser</h2><span class="sp"></span><button class="close" data-close aria-label="Lukk">×</button></header>
+  <div class="body" id="feed"><p class="empty">Ingen store hendelser akkurat nå.</p></div>
+</section>
+<section class="sheet" id="sSrc" aria-label="Datakilder">
+  <header><h2>Datakilder</h2><span class="sp"></span><button class="close" data-close aria-label="Lukk">×</button></header>
+  <div class="body">
+    <label class="tg"><input type="checkbox" id="optNotify">Varsle meg på telefonen om nye store hendelser</label>
+    <div id="srcList"></div>
+    <p class="note">Alle kilder er gratis. Fly, skip og webkameraer går via dine egne proxyer på Cloudflare (flyradar og batblikk). Lyn og veitrafikk krever avtale eller nøkkel og er ikke koblet på ennå.</p>
+  </div>
+</section>
+
+<script src="../vendor/leaflet/leaflet.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/satellite.js@4.1.4/dist/satellite.min.js"></script>
+<script>
+"use strict";
+const FLY_PROXY = "https://flyradar.seriksso.workers.dev";
+const SEA_API = "https://batblikk.seriksso.workers.dev";
+const $ = id => document.getElementById(id);
+const esc = v => String(v ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const store = { get(k, d) { try { const v = localStorage.getItem("worldpuls." + k); return v == null ? d : JSON.parse(v); } catch { return d; } },
+                set(k, v) { try { localStorage.setItem("worldpuls." + k, JSON.stringify(v)); } catch {} } };
+const getJSON = (u, ms = 20000) => fetch(u, { signal: AbortSignal.timeout(ms) }).then(r => { if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); });
+const getText = (u, ms = 20000) => fetch(u, { signal: AbortSignal.timeout(ms) }).then(r => { if (!r.ok) throw new Error("HTTP " + r.status); return r.text(); });
+const fmtTime = t => new Date(t).toLocaleTimeString("no-NO", { hour: "2-digit", minute: "2-digit" });
+const ago = t => { const m = Math.round((Date.now() - t) / 60000); return m < 1 ? "nå" : m < 60 ? m + " min" : m < 1440 ? Math.round(m / 60) + " t" : Math.round(m / 1440) + " d"; };
+const LV = { red: "var(--red)", orange: "var(--orange)", yellow: "var(--yellow)", info: "var(--sky)" };
+
+// ---------- Kart ----------
+const saved = store.get("view", { c: [35, 10], z: 2 });
+const map = L.map("map", { zoomControl: false, worldCopyJump: true, minZoom: 2, maxZoom: 14, preferCanvas: true }).setView(saved.c, saved.z);
+L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}", { maxZoom: 16, attribution: "Kart &copy; Esri" }).addTo(map);
+const refPane = map.createPane("ref"); refPane.style.zIndex = 450; refPane.style.pointerEvents = "none";
+L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Reference/MapServer/tile/{z}/{y}/{x}", { maxZoom: 16, pane: "ref" }).addTo(map);
+map.attributionControl.setPrefix(false);
+const canvas = L.canvas({ padding: 0.3 });
+map.on("moveend", () => store.set("view", { c: [map.getCenter().lat, map.getCenter().wrap().lng], z: map.getZoom() }));
+
+// ---------- Hendelser og varsler ----------
+const seen = new Set(store.get("seen", []));
+const events = new Map();
+let unread = 0, booted = false;
+function addEvent(e) {
+  if (events.has(e.id)) { Object.assign(events.get(e.id), e); return; }
+  events.set(e.id, e);
+  if (!seen.has(e.id)) {
+    seen.add(e.id);
+    if (booted && (e.lv === "red" || e.lv === "orange")) { unread++; toast(e); }
+  }
+}
+function renderFeed() {
+  const list = [...events.values()].filter(e => Date.now() - e.t < 3 * 864e5).sort((a, b) => (b.rank || 0) - (a.rank || 0) || b.t - a.t);
+  $("feed").innerHTML = list.length ? list.slice(0, 80).map(e =>
+    `<div class="row" tabindex="0" data-id="${esc(e.id)}" style="--lv:${LV[e.lv]}"><span class="bar"></span><div><div class="t">${esc(e.title)}</div><div class="s">${esc(e.sub || "")}</div></div><time>${ago(e.t)}</time></div>`).join("")
+    : `<p class="empty">Ingen store hendelser akkurat nå.</p>`;
+  $("nAlerts").hidden = !unread; $("nAlerts").textContent = unread;
+  store.set("seen", [...seen].slice(-600));
+}
+$("feed").addEventListener("click", ev => {
+  const r = ev.target.closest(".row"); if (!r) return; const e = events.get(r.dataset.id); if (!e) return;
+  if (e.lat != null) { closeSheets(); map.flyTo([e.lat, e.lon], Math.max(map.getZoom(), e.z || 5), { duration: 1.2 }); }
+});
+let toastTimer;
+function toast(e) {
+  const t = $("toast");
+  t.style.setProperty("--lv", LV[e.lv]);
+  t.innerHTML = `<b>${e.lv === "red" ? "Kritisk" : "Varsel"} · ${esc(e.layer)}</b>${esc(e.title)}`;
+  t.onclick = () => { t.classList.remove("show"); if (e.lat != null) map.flyTo([e.lat, e.lon], Math.max(map.getZoom(), e.z || 5)); };
+  t.classList.add("show"); clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove("show"), 7000);
+  try { navigator.vibrate && navigator.vibrate(e.lv === "red" ? [200, 100, 200] : 120); } catch {}
+  if (store.get("notify", false) && "Notification" in window && Notification.permission === "granted" && document.hidden) {
+    try { new Notification("WorldPuls: " + e.layer, { body: e.title, icon: "../icon-192.png", tag: e.id }); } catch {}
+  }
+}
+
+// ---------- Kartlag ----------
+const L_ = {};
+function layerDef(d) { d.group = L.layerGroup(); d.state = "idle"; d.count = null; d.updated = null; L_[d.id] = d; return d; }
+
+const popupTable = rows => `<table>${rows.filter(r => r[1] != null && r[1] !== "").map(([k, v]) => `<tr><td class="k">${k}</td><td>${v}</td></tr>`).join("")}</table>`;
+
+// Jordskjelv: USGS
+layerDef({ id: "quake", label: "Jordskjelv", color: "#ff7a45", every: 60e3, on: true,
+  source: "USGS Earthquake Hazards", url: "https://earthquake.usgs.gov/earthquakes/feed/", freq: "hvert minutt", cost: "Gratis, ingen nøkkel",
+  async load() {
+    const j = await getJSON("https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/2.5_week.geojson");
+    this.group.clearLayers();
+    for (const f of j.features) {
+      const [lon, lat, depth] = f.geometry.coordinates, p = f.properties, m = p.mag ?? 0;
+      const age = (Date.now() - p.time) / 36e5;
+      const col = age < 1 ? "#ff3b3b" : age < 24 ? "#ff7a45" : "#c9a05a";
+      L.circleMarker([lat, lon], { renderer: canvas, radius: Math.max(2.5, m * m * 0.55), color: col, weight: 1, fillColor: col, fillOpacity: age < 24 ? .5 : .22 })
+        .bindPopup(`<h3>M ${m.toFixed(1)} · ${esc(p.place)}</h3>${popupTable([["Tid", new Date(p.time).toLocaleString("no-NO")], ["Dybde", depth.toFixed(0) + " km"], ["Tsunami", p.tsunami ? "Varsel utstedt" : null], ["PAGER", p.alert]])}<a href="${esc(p.url)}" target="_blank" rel="noopener">Mer hos USGS</a>`)
+        .addTo(this.group);
+      const nordic = lat > 54 && lat < 82 && lon > -12 && lon < 35;
+      if (m >= 5.5 || (nordic && m >= 3.5)) addEvent({ id: "q" + f.id, t: p.time, lv: m >= 6.5 || p.tsunami ? "red" : m >= 5.5 ? "orange" : "yellow", layer: "Jordskjelv", title: `M ${m.toFixed(1)} ${p.place}`, sub: `${depth.toFixed(0)} km dyp${p.tsunami ? " · tsunamivarsel" : ""}`, lat, lon, z: 6, rank: m >= 6.5 ? 2 : 0 });
+    }
+    return j.features.length;
+  } });
+
+// Skogbranner og vulkaner: NASA EONET
+const EONET_CAT = { wildfires: ["Skogbrann", "#ff5a1f"], volcanoes: ["Vulkan", "#ff2d6f"], severeStorms: ["Storm", "#b48cff"], seaLakeIce: ["Is", "#9fd8ff"], floods: ["Flom", "#4aa3ff"], drought: ["Tørke", "#d9a441"], dustHaze: ["Støv/dis", "#c8b27a"], landslides: ["Skred", "#b08560"], snow: ["Snø", "#e6f0ff"], tempExtremes: ["Ekstremtemp.", "#ff9b3d"] };
+let eonetCache = null, eonetAt = 0;
+async function eonet() { if (!eonetCache || Date.now() - eonetAt > 5 * 60e3) { eonetCache = await getJSON("https://eonet.gsfc.nasa.gov/api/v3/events?status=open&days=30", 30000); eonetAt = Date.now(); } return eonetCache; }
+function eonetPoint(e) { const g = e.geometry[e.geometry.length - 1]; let c = g.coordinates; if (g.type === "Polygon") { const r = c[0]; c = [r.reduce((s, p) => s + p[0], 0) / r.length, r.reduce((s, p) => s + p[1], 0) / r.length]; } return { lon: +c[0], lat: +c[1], date: Date.parse(g.date), mag: g.magnitudeValue, unit: g.magnitudeUnit, track: e.geometry.length > 1 && g.type === "Point" ? e.geometry.map(x => [x.coordinates[1], x.coordinates[0]]) : null }; }
+layerDef({ id: "fire", label: "Skogbranner", color: "#ff5a1f", every: 10 * 60e3, on: true,
+  source: "NASA EONET (skogbrann, vulkaner)", url: "https://eonet.gsfc.nasa.gov/", freq: "hvert 10. minutt", cost: "Gratis, ingen nøkkel. NASA FIRMS gir hvert brannpunkt, men krever gratis nøkkel.",
+  async load() {
+    const j = await eonet(); this.group.clearLayers(); let n = 0;
+    for (const e of j.events) {
+      const cat = e.categories[0].id; if (cat !== "wildfires" && cat !== "volcanoes") continue;
+      const p = eonetPoint(e), [name, col] = EONET_CAT[cat]; n++;
+      L.circleMarker([p.lat, p.lon], { renderer: canvas, radius: cat === "volcanoes" ? 7 : 5, color: col, weight: 2, fillColor: col, fillOpacity: .55 })
+        .bindPopup(`<h3>${esc(e.title)}</h3>${popupTable([["Type", name], ["Sist oppdatert", new Date(p.date).toLocaleDateString("no-NO")], ["Størrelse", p.mag ? `${p.mag} ${esc(p.unit || "")}` : null]])}${e.sources?.[0]?.url?.startsWith("https://") ? `<a href="${esc(e.sources[0].url)}" target="_blank" rel="noopener">Kilde</a>` : ""}`)
+        .addTo(this.group);
+      if (cat === "volcanoes") addEvent({ id: "e" + e.id, t: p.date, lv: "yellow", layer: "Vulkan", title: e.title, sub: "Aktiv vulkan (NASA EONET)", lat: p.lat, lon: p.lon, z: 7 });
+    }
+    return n;
+  } });
+
+// Nordlys: NOAA SWPC OVATION
+layerDef({ id: "aurora", label: "Nordlys", color: "#4dff9a", every: 5 * 60e3, on: true,
+  source: "NOAA SWPC OVATION (30–90 min prognose)", url: "https://www.swpc.noaa.gov/products/aurora-30-minute-forecast", freq: "hvert 5. minutt", cost: "Gratis, ingen nøkkel",
+  async load() {
+    const j = await getJSON("https://services.swpc.noaa.gov/json/ovation_aurora_latest.json");
+    this.group.clearLayers(); let n = 0;
+    for (const [lo, la, v] of j.coordinates) {
+      if (v < 3) continue; n++;
+      const lon = lo > 180 ? lo - 360 : lo;
+      const col = v >= 50 ? "#e8ff6b" : v >= 25 ? "#7dff6b" : "#2fe38a";
+      L.rectangle([[la - .5, lon - .5], [la + .5, lon + .5]], { renderer: canvas, stroke: false, fillColor: col, fillOpacity: Math.min(.75, .1 + v / 60), interactive: false }).addTo(this.group);
+    }
+    this.extra = `Prognose for ${new Date(j["Forecast Time"]).toLocaleTimeString("no-NO", { hour: "2-digit", minute: "2-digit" })}`;
+    return n;
+  } });
+
+// Satellitter: CelesTrak + satellite.js (beregnes lokalt hvert sekund)
+let satrecs = [], satMarkers = [], satTimer = null;
+layerDef({ id: "sat", label: "Satellitter", color: "#c9d6ff", every: 6 * 36e5, on: true,
+  source: "CelesTrak banedata (ISS, Tiangong og ca. 150 synlige satellitter), posisjon regnes ut i appen", url: "https://celestrak.org/", freq: "banedata hver 6. time, posisjon hvert sekund", cost: "Gratis, ingen nøkkel",
+  async load() {
+    if (typeof satellite === "undefined") throw new Error("satellite.js lastet ikke");
+    const [vis, st] = await Promise.all([getText("https://celestrak.org/NORAD/elements/gp.php?GROUP=visual&FORMAT=tle"), getText("https://celestrak.org/NORAD/elements/gp.php?GROUP=stations&FORMAT=tle")]);
+    const parse = txt => { const l = txt.trim().split(/\r?\n/).map(s => s.trimEnd()), out = []; for (let i = 0; i + 2 < l.length; i += 3) if (l[i + 1]?.startsWith("1 ") && l[i + 2]?.startsWith("2 ")) out.push({ name: l[i].trim(), rec: satellite.twoline2satrec(l[i + 1], l[i + 2]) }); return out; };
+    const seenN = new Set(); satrecs = [];
+    for (const s of [...parse(st).filter(s => /ISS \(ZARYA\)|CSS \(TIANHE\)|HUBBLE/.test(s.name)), ...parse(vis)]) if (!seenN.has(s.name)) { seenN.add(s.name); satrecs.push(s); }
+    this.group.clearLayers();
+    satMarkers = satrecs.map(s => {
+      const big = /ISS|TIANHE|HUBBLE/.test(s.name);
+      const m = L.circleMarker([0, 0], { renderer: canvas, radius: big ? 6 : 2.5, color: big ? "#fff" : "#c9d6ff", weight: big ? 2 : 1, fillColor: big ? "#5fe3cc" : "#c9d6ff", fillOpacity: .9 }).bindPopup(() => satPopup(s));
+      if (big) m.bindTooltip(s.name.replace(/ \(.*\)/, ""), { permanent: true, direction: "right", className: "lbl", offset: [6, 0] });
+      return m.addTo(this.group);
+    });
+    tickSats(); clearInterval(satTimer); satTimer = setInterval(tickSats, 1000);
+    return satrecs.length;
+  } });
+function satPos(rec, d) { const pv = satellite.propagate(rec, d); if (!pv.position) return null; const g = satellite.eciToGeodetic(pv.position, satellite.gstime(d)); const v = pv.velocity; return { lat: satellite.degreesLat(g.latitude), lon: satellite.degreesLong(g.longitude), h: g.height, v: v ? Math.hypot(v.x, v.y, v.z) : null }; }
+function tickSats() { if (!map.hasLayer(L_.sat.group)) return; const d = new Date(); satrecs.forEach((s, i) => { const p = satPos(s.rec, d); if (p) satMarkers[i].setLatLng([p.lat, p.lon]); }); }
+function satPopup(s) { const p = satPos(s.rec, new Date()); return `<h3>${esc(s.name)}</h3>${p ? popupTable([["Høyde", p.h.toFixed(0) + " km"], ["Fart", p.v ? (p.v * 3600).toFixed(0) + " km/t" : null], ["Posisjon", `${p.lat.toFixed(2)}°, ${p.lon.toFixed(2)}°`]]) : ""}`; }
+
+// Fly: flyradar-proxyen (adsb.lol, airplanes.live, adsb.fi)
+const planeIcon = (trk, col) => L.divIcon({ className: "ico", iconSize: [16, 16], iconAnchor: [8, 8], html: `<svg width="16" height="16" viewBox="-8 -8 16 16" style="transform:rotate(${Math.round(trk || 0)}deg)"><path d="M0-7 1.2-2 6 1v1.4L1.2 1 .8 5l2 1.4V7L0 6.3-2.8 7v-.6l2-1.4-.4-4-4.8 1.4V1l4.8-3z" fill="${col}" stroke="#000" stroke-width=".5"/></svg>` });
+layerDef({ id: "fly", label: "Fly", color: "#5a9bff", every: 12e3, on: false, minZoom: 5,
+  source: "Din flyradar-proxy (adsb.lol, airplanes.live, adsb.fi)", url: "https://seriksso-maker.github.io/flyradar/", freq: "hvert 12. sekund, rundt der du ser", cost: "Gratis via Cloudflare Worker. Hele verden samtidig krever betalt kilde.",
+  async load() {
+    if (map.getZoom() < this.minZoom) { this.group.clearLayers(); return null; }
+    const b = map.getBounds(), c = b.getCenter(), pts = [[c.lat, c.lng]];
+    const dNm = c.distanceTo(b.getNorthEast()) / 1852;
+    if (dNm > 250) for (const [a, o] of [[b.getNorth(), b.getWest()], [b.getNorth(), b.getEast()], [b.getSouth(), b.getWest()], [b.getSouth(), b.getEast()]]) pts.push([(a + c.lat) / 2, (o + c.lng) / 2]);
+    const j = await getJSON(`${FLY_PROXY}/multi?p=${pts.map(p => `${p[0].toFixed(2)},${L.Util.wrapNum(p[1], [-180, 180], true).toFixed(2)},250`).join("|")}`);
+    this.group.clearLayers(); let n = 0;
+    for (const a of j.ac || []) {
+      if (a.lat == null || a.alt_baro === "ground") continue; n++;
+      const alt = typeof a.alt_baro === "number" ? a.alt_baro : a.alt_geom;
+      const col = a.emergency && a.emergency !== "none" ? "#ff5a5f" : alt > 30000 ? "#9cc4ff" : alt > 10000 ? "#5a9bff" : "#5fe3cc";
+      L.marker([a.lat, a.lon], { icon: planeIcon(a.track ?? a.true_heading, col), keyboard: false })
+        .bindPopup(`<h3>${esc((a.flight || a.hex).trim())}</h3>${popupTable([["Fly", esc([a.t, a.r].filter(Boolean).join(" · "))], ["Høyde", alt != null ? Math.round(alt * .3048).toLocaleString("no-NO") + " m" : null], ["Fart", a.gs != null ? Math.round(a.gs * 1.852) + " km/t" : null], ["Kurs", a.track != null ? Math.round(a.track) + "°" : null], ["Squawk", esc(a.squawk)]])}<a href="https://seriksso-maker.github.io/flyradar/" target="_blank" rel="noopener">Åpne i SkyPulse</a>`)
+        .addTo(this.group);
+      if (a.emergency && a.emergency !== "none") addEvent({ id: "f" + a.hex + a.emergency, t: Date.now(), lv: "orange", layer: "Fly", title: `${(a.flight || a.hex).trim()} melder nødsituasjon (${a.emergency})`, sub: "Squawk " + (a.squawk || ""), lat: a.lat, lon: a.lon, z: 8 });
+    }
+    return n;
+  } });
+
+// Skip: batblikk-workeren (Kystverket, Digitraffic, aisstream)
+const SHIP_COL = t => t >= 60 && t < 70 ? "#1f9bff" : t >= 70 && t < 80 ? "#3ddc84" : t >= 80 && t < 90 ? "#ff5a5f" : t === 30 ? "#ffb454" : t === 36 || t === 37 ? "#b07cff" : "#8aa0b5";
+layerDef({ id: "ship", label: "Skip", color: "#3ddc84", every: 15e3, on: false,
+  source: "Din SeaPulse-worker (Kystverket AIS, Digitraffic Finland, aisstream.io)", url: "https://batblikk.seriksso.workers.dev", freq: "hvert 15. sekund", cost: "Gratis, men Durable Objects har en daglig gratiskvote",
+  async load() {
+    const j = await getJSON(`${SEA_API}/api/ships`);
+    if (j.error) throw new Error(/free tier/i.test(j.error) ? "gratiskvoten er brukt opp i dag" : j.error);
+    this.group.clearLayers(); let n = 0;
+    for (const s of j.ships || []) {
+      if (s.lat == null) continue; n++;
+      L.circleMarker([s.lat, s.lon], { renderer: canvas, radius: 3, weight: 0, fillColor: SHIP_COL(s.shipType), fillOpacity: .9 })
+        .bindPopup(() => `<h3>${esc(s.name || s.mmsi)}</h3>${popupTable([["MMSI", s.mmsi], ["Fart", s.sog != null ? s.sog.toFixed(1) + " knop" : null], ["Kurs", s.cog != null ? Math.round(s.cog) + "°" : null], ["Destinasjon", esc(s.destination)]])}<a href="${SEA_API}/" target="_blank" rel="noopener">Åpne i SeaPulse</a>`)
+        .addTo(this.group);
+    }
+    return n;
+  } });
+
+// Ekstremvær: MET farevarsler, NWS (USA), EONET-stormer, RainViewer-radar
+const radar = L.tileLayer("", { opacity: .55, maxNativeZoom: 7, maxZoom: 14, attribution: "Radar &copy; RainViewer" });
+const AW = { yellow: ["yellow", "#ffd84d"], orange: ["orange", "#ffa53d"], red: ["red", "#ff5a5f"] };
+layerDef({ id: "wx", label: "Ekstremvær", color: "#b48cff", every: 5 * 60e3, on: true,
+  source: "MET Norway farevarsler, NOAA/NWS (USA), NASA EONET stormer, RainViewer nedbørsradar", url: "https://api.met.no/weatherapi/metalerts/2.0/documentation", freq: "hvert 5. minutt", cost: "Gratis, ingen nøkkel",
+  async load() {
+    const [met, nws, eo, rv] = await Promise.allSettled([
+      getJSON("https://api.met.no/weatherapi/metalerts/2.0/current.json"),
+      getJSON("https://api.weather.gov/alerts/active?status=actual&severity=Extreme,Severe"),
+      eonet(), getJSON("https://api.rainviewer.com/public/weather-maps.json")]);
+    this.group.clearLayers(); let n = 0;
+    if (rv.value) { const f = rv.value.radar.past.at(-1); radar.setUrl(`${rv.value.host}${f.path}/256/{z}/{x}/{y}/2/1_1.png`); radar.addTo(this.group); }
+    if (met.value) for (const f of met.value.features) {
+      const p = f.properties, key = (p.awareness_level || "").split(";")[1]?.trim(), [lv, col] = AW[key] || AW.yellow; n++;
+      const shape = L.geoJSON(f, { style: { color: col, weight: 1.5, fillColor: col, fillOpacity: .18 } })
+        .bindPopup(`<h3>${esc(p.title || p.event)}</h3><p>${esc(p.description || "")}</p>${popupTable([["Område", esc(p.area)], ["Råd", esc(p.instruction)]])}`).addTo(this.group);
+      const c = shape.getBounds().getCenter();
+      if (lv !== "yellow") addEvent({ id: "m" + p.id, t: Date.parse(f.when?.interval?.[0] || Date.now()), lv, layer: "Farevarsel", title: p.title || p.event, sub: p.area, lat: c.lat, lon: c.lng, z: 6, rank: lv === "red" ? 3 : 1 });
+    }
+    if (nws.value) for (const f of nws.value.features) {
+      if (!f.geometry) continue; const p = f.properties, ext = p.severity === "Extreme"; n++;
+      const shape = L.geoJSON(f, { style: { color: ext ? "#ff5a5f" : "#ffa53d", weight: 1, fillOpacity: .15 } })
+        .bindPopup(`<h3>${esc(p.event)}</h3>${popupTable([["Område", esc(p.areaDesc)], ["Til", p.ends ? new Date(p.ends).toLocaleString("no-NO") : null]])}`).addTo(this.group);
+      if (ext) { const c = shape.getBounds().getCenter(); addEvent({ id: "n" + p.id, t: Date.parse(p.sent), lv: "orange", layer: "Ekstremvær USA", title: p.event, sub: p.areaDesc.slice(0, 90), lat: c.lat, lon: c.lng, z: 6 }); }
+    }
+    if (eo.value) for (const e of eo.value.events) {
+      if (e.categories[0].id !== "severeStorms") continue; const p = eonetPoint(e); n++;
+      if (p.track) L.polyline(p.track, { color: "#b48cff", weight: 2, opacity: .7, dashArray: "4 4" }).addTo(this.group);
+      L.circleMarker([p.lat, p.lon], { renderer: canvas, radius: 9, color: "#b48cff", weight: 3, fillOpacity: .2 })
+        .bindPopup(`<h3>${esc(e.title)}</h3>${popupTable([["Vind", p.mag ? `${p.mag} ${esc(p.unit)}` : null], ["Sist", new Date(p.date).toLocaleString("no-NO")]])}`).addTo(this.group);
+      addEvent({ id: "s" + e.id, t: p.date, lv: p.mag >= 100 ? "orange" : "yellow", layer: "Storm", title: e.title, sub: p.mag ? `Vind ${p.mag} ${p.unit}` : "Tropisk storm", lat: p.lat, lon: p.lon, z: 5, rank: 1 });
+    }
+    return n;
+  } });
+
+// Webkameraer: Windy via batblikk-workeren
+layerDef({ id: "cam", label: "Webkameraer", color: "#ffd84d", every: 10 * 60e3, on: false, minZoom: 6,
+  source: "Windy Webcams via din SeaPulse-worker", url: "https://api.windy.com/webcams", freq: "rundt der du ser, hvert 10. minutt", cost: "Gratis nøkkel (ligger allerede i workeren)",
+  async load() {
+    if (map.getZoom() < this.minZoom) { this.group.clearLayers(); return null; }
+    const c = map.getCenter().wrap(), r = Math.min(250, Math.round(c.distanceTo(map.getBounds().getNorthEast()) / 1000));
+    const j = await getJSON(`${SEA_API}/api/webcams?lat=${c.lat.toFixed(2)}&lon=${c.lng.toFixed(2)}&r=${r}&cat=alle`);
+    this.group.clearLayers();
+    for (const w of j.webcams || []) {
+      L.circleMarker([w.lat, w.lon], { renderer: canvas, radius: 6, color: "#ffd84d", weight: 2, fillColor: "#3a3000", fillOpacity: .9 })
+        .bindPopup(`<h3>${esc(w.title)}</h3>${w.img?.startsWith("https://") ? `<img src="${esc(w.img)}" alt="">` : ""}<span class="k">Oppdatert ${w.updated ? ago(Date.parse(w.updated)) + " siden" : "ukjent"}</span><br>${w.page?.startsWith("https://") ? `<a href="${esc(w.page)}" target="_blank" rel="noopener">Se kameraet</a>` : ""}`, { maxWidth: 280 })
+        .addTo(this.group);
+    }
+    return (j.webcams || []).length;
+  } });
+
+// Bølger og havstrømmer: Open-Meteo Marine
+const arrowIcon = (dir, col, s) => L.divIcon({ className: "ico", iconSize: [s, s], iconAnchor: [s / 2, s / 2], html: `<svg width="${s}" height="${s}" viewBox="-10 -10 20 20" style="transform:rotate(${Math.round(dir)}deg)"><path d="M0 9V-6M-4-2 0-8 4-2" stroke="${col}" stroke-width="2.2" fill="none" stroke-linecap="round"/></svg>` });
+const waveCol = h => h >= 8 ? "#ff5a5f" : h >= 5 ? "#ffa53d" : h >= 3 ? "#ffd84d" : h >= 1.5 ? "#59d0ff" : "#2f7fd6";
+layerDef({ id: "wave", label: "Bølger", color: "#59d0ff", every: 30 * 60e3, on: false,
+  source: "Open-Meteo Marine (bølgehøyde, -periode, havstrøm)", url: "https://open-meteo.com/en/docs/marine-weather-api", freq: "hver 30. minutt, rutenett etter zoom", cost: "Gratis for ikke-kommersiell bruk",
+  async load() {
+    const z = map.getZoom(), step = z <= 3 ? 10 : z <= 4 ? 6 : z <= 5 ? 3 : z <= 7 ? 1 : .4, b = map.getBounds().pad(.1), pts = [];
+    for (let la = Math.ceil(Math.max(-70, b.getSouth()) / step) * step; la <= Math.min(75, b.getNorth()); la += step)
+      for (let lo = Math.ceil(b.getWest() / step) * step; lo <= b.getEast(); lo += step) pts.push([+la.toFixed(2), +L.Util.wrapNum(lo, [-180, 180], true).toFixed(2), lo]);
+    const use = pts.slice(0, 400), res = [];
+    for (let i = 0; i < use.length; i += 100) {
+      const ch = use.slice(i, i + 100);
+      const j = await getJSON(`https://marine-api.open-meteo.com/v1/marine?latitude=${ch.map(p => p[0])}&longitude=${ch.map(p => p[1])}&current=wave_height,wave_direction,wave_period,ocean_current_velocity,ocean_current_direction&cell_selection=sea`);
+      (Array.isArray(j) ? j : [j]).forEach((d, k) => { const c = d.current; if (c && c.wave_height != null) res.push([ch[k][0], ch[k][2], c]); });
+    }
+    this.group.clearLayers();
+    const s = z <= 3 ? 16 : 20;
+    for (const [la, lo, c] of res) {
+      L.marker([la, lo], { icon: arrowIcon((c.wave_direction + 180) % 360, waveCol(c.wave_height), s), keyboard: false })
+        .bindPopup(`<h3>${c.wave_height.toFixed(1)} m bølger</h3>${popupTable([["Periode", c.wave_period != null ? c.wave_period.toFixed(0) + " s" : null], ["Fra retning", c.wave_direction != null ? Math.round(c.wave_direction) + "°" : null], ["Havstrøm", c.ocean_current_velocity != null ? `${(c.ocean_current_velocity / 3.6).toFixed(2)} m/s mot ${Math.round(c.ocean_current_direction)}°` : null]])}`)
+        .addTo(this.group);
+    }
+    return res.length;
+  } });
+
+// Sol: dag/natt-grense + Kp, røntgen og solvind i stripen øverst
+function nightPolygon(d) {
+  const rad = Math.PI / 180, jd = d / 864e5 + 2440587.5, n = jd - 2451545;
+  const L0 = (280.46 + .9856474 * n) % 360, g = (357.528 + .9856003 * n) % 360;
+  const lam = L0 + 1.915 * Math.sin(g * rad) + .02 * Math.sin(2 * g * rad), eps = 23.439 - 4e-7 * n;
+  const dec = Math.asin(Math.sin(eps * rad) * Math.sin(lam * rad)) / rad;
+  const ra = Math.atan2(Math.cos(eps * rad) * Math.sin(lam * rad), Math.cos(lam * rad)) / rad;
+  const gmst = (280.46061837 + 360.98564736629 * n) % 360, sunLon = ((ra - gmst + 540) % 360) - 180;
+  const pts = [];
+  for (let lo = -360; lo <= 360; lo += 2) { const ha = (lo - sunLon) * rad; pts.push([Math.atan(-Math.cos(ha) / Math.tan(dec * rad)) / rad, lo]); }
+  const pole = dec > 0 ? -90 : 90;
+  return [[pole, -360], ...pts, [pole, 360]];
+}
+const night = L.polygon([], { stroke: false, fillColor: "#000814", fillOpacity: .38, interactive: false });
+layerDef({ id: "sun", label: "Sol og natt", color: "#ffb454", every: 60e3, on: true,
+  source: "NOAA SWPC (Kp-indeks, GOES røntgen, solvind fra DSCOVR/ACE)", url: "https://www.swpc.noaa.gov/", freq: "hvert minutt", cost: "Gratis, ingen nøkkel",
+  async load() {
+    night.setLatLngs(nightPolygon(Date.now())); night.addTo(this.group);
+    return null;
+  } });
+async function loadSun() {
+  const [kp, xr, sw] = await Promise.allSettled([
+    getJSON("https://services.swpc.noaa.gov/products/noaa-planetary-k-index.json"),
+    getJSON("https://services.swpc.noaa.gov/json/goes/primary/xrays-6-hour.json"),
+    getJSON("https://services.swpc.noaa.gov/json/rtsw/rtsw_wind_1m.json")]);
+  const set = (id, txt, cls) => { const g = $(id); g.querySelector("b").textContent = txt; g.className = "gauge" + (cls ? " " + cls : ""); };
+  if (kp.value?.length) {
+    const last = kp.value.at(-1), v = +(last.Kp ?? last[1]);
+    set("gKp", v.toFixed(1) + (v >= 5 ? ` G${Math.min(5, Math.floor(v) - 4)}` : ""), v >= 7 ? "crit" : v >= 5 ? "warn" : "");
+    if (v >= 5) addEvent({ id: "kp" + (last.time_tag || last[0]), t: Date.parse((last.time_tag || last[0]) + "Z"), lv: v >= 7 ? "red" : "orange", layer: "Solaktivitet", title: `Geomagnetisk storm G${Math.min(5, Math.floor(v) - 4)} (Kp ${v.toFixed(1)})`, sub: "Gode sjanser for nordlys langt sør", lat: 69.6, lon: 18.9, z: 3, rank: 2 });
+  }
+  if (xr.value?.length) {
+    const xs = xr.value.filter(x => x.energy === "0.1-0.8nm"), x = xs.at(-1), f = x.flux;
+    const cls = f >= 1e-4 ? "X" : f >= 1e-5 ? "M" : f >= 1e-6 ? "C" : f >= 1e-7 ? "B" : "A";
+    const base = { X: 1e-4, M: 1e-5, C: 1e-6, B: 1e-7, A: 1e-8 }[cls];
+    set("gX", cls + (f / base).toFixed(1), cls === "X" ? "crit" : cls === "M" ? "warn" : "");
+    const peak = xs.reduce((a, b) => b.flux > a.flux ? b : a, xs[0]);
+    if (peak.flux >= 1e-5) { const pc = peak.flux >= 1e-4 ? "X" : "M"; addEvent({ id: "xr" + peak.time_tag.slice(0, 13), t: Date.parse(peak.time_tag), lv: pc === "X" ? "red" : "orange", layer: "Solaktivitet", title: `Soleruptsjon ${pc}${(peak.flux / (pc === "X" ? 1e-4 : 1e-5)).toFixed(1)}`, sub: "Kan gi radioforstyrrelser på dagsiden", rank: 1 }); }
+  }
+  if (sw.value?.length) { const a = sw.value.find(x => x.active && x.proton_speed) || sw.value[0]; if (a?.proton_speed) set("gW", Math.round(a.proton_speed) + " km/s", a.proton_speed >= 700 ? "crit" : a.proton_speed >= 550 ? "warn" : ""); }
+}
+
+// Ikke koblet på ennå
+layerDef({ id: "lyn", label: "Lyn", color: "#fff27a", locked: "Blitzortung tillater ikke åpen gjenbruk. Alternativer: Vaisala/Xweather (betalt) eller MET Norway frost-lyn (krever avtale).",
+  source: "Ingen åpen kilde", url: "https://www.blitzortung.org/", freq: "–", cost: "Krever avtale eller betalt API" });
+layerDef({ id: "vei", label: "Veitrafikk", color: "#ff8fd0", locked: "Statens vegvesen DATEX II (trafikkmeldinger, kameraer, reisetider) er gratis, men krever registrering og en proxy i Cloudflare.",
+  source: "Statens vegvesen DATEX II", url: "https://www.vegvesen.no/fag/teknologi/apne-data/", freq: "hvert minutt", cost: "Gratis, krever registrering" });
+
+// ---------- Brikker, oppdatering, status ----------
+const ORDER = ["quake", "fire", "aurora", "wx", "sat", "fly", "ship", "wave", "cam", "sun", "lyn", "vei"];
+const enabled = new Set(store.get("layers", ORDER.filter(id => L_[id].on)));
+const timers = {};
+function chipHtml(d) {
+  const n = d.locked ? "låst" : d.state === "loading" && d.count == null ? "…" : d.state === "err" ? "feil" : d.state === "zoom" ? "zoom inn" : d.count != null ? d.count.toLocaleString("no-NO") : "";
+  return `<span class="sw"></span>${esc(d.label)}<span class="n">${n}</span>`;
+}
+function renderChips() {
+  $("chips").innerHTML = ORDER.map(id => { const d = L_[id]; return `<button class="chip${enabled.has(id) && !d.locked ? " on" : ""}${d.locked ? " locked" : ""}${d.state === "err" ? " err" : ""}" data-id="${id}" style="--c:${d.color}" aria-pressed="${enabled.has(id)}">${chipHtml(d)}</button>`; }).join("");
+}
+function updateChip(d) { const b = $("chips").querySelector(`[data-id="${d.id}"]`); if (b) { b.innerHTML = chipHtml(d); b.classList.toggle("err", d.state === "err"); } }
+async function refresh(d) {
+  if (d.locked || !enabled.has(d.id)) return;
+  if (d.minZoom && map.getZoom() < d.minZoom) { d.group.clearLayers(); d.state = "zoom"; d.count = null; updateChip(d); renderSources(); return; }
+  d.state = "loading"; updateChip(d);
+  try { const n = await d.load(); d.count = n; d.state = "ok"; d.updated = Date.now(); d.error = null; }
+  catch (e) { d.state = "err"; d.error = e.message || String(e); console.warn(d.id, e); }
+  updateChip(d); renderSources(); renderFeed();
+}
+function setLayer(id, on) {
+  const d = L_[id]; if (d.locked) return;
+  if (on) { enabled.add(id); d.group.addTo(map); refresh(d); clearInterval(timers[id]); timers[id] = setInterval(() => refresh(d), d.every); }
+  else { enabled.delete(id); d.group.remove(); clearInterval(timers[id]); }
+  store.set("layers", [...enabled]); renderChips(); updateHint();
+}
+$("chips").addEventListener("click", e => {
+  const b = e.target.closest(".chip"); if (!b) return; const d = L_[b.dataset.id];
+  if (d.locked) { openSheet("sSrc"); return; }
+  setLayer(d.id, !enabled.has(d.id));
+});
+let moveT;
+map.on("moveend", () => { clearTimeout(moveT); moveT = setTimeout(() => { for (const id of ["fly", "cam", "wave"]) if (enabled.has(id)) refresh(L_[id]); updateHint(); }, 600); });
+function updateHint() {
+  const need = ["fly", "cam"].filter(id => enabled.has(id) && map.getZoom() < L_[id].minZoom).map(id => L_[id].label.toLowerCase());
+  $("hint").hidden = !need.length; if (need.length) $("hint").textContent = `Zoom inn for å se ${need.join(" og ")}`;
+}
+function renderSources() {
+  $("srcList").innerHTML = ORDER.map(id => { const d = L_[id];
+    const st = d.locked ? ["", "ikke koblet på"] : !enabled.has(id) ? ["", "av"] : d.state === "err" ? ["bad", "feil: " + d.error] : d.state === "ok" ? ["ok", "oppdatert " + fmtTime(d.updated)] : d.state === "zoom" ? ["", "zoom inn"] : ["", "laster"];
+    return `<div class="src" style="--c:${d.color}"><div class="h"><span class="sw"></span>${esc(d.label)}<span class="st ${st[0]}">${esc(st[1])}</span></div><p><b>${esc(d.source)}</b>. ${esc(d.cost)}. Oppdateres ${esc(d.freq)}.${d.extra && enabled.has(id) ? " " + esc(d.extra) + "." : ""}</p>${d.locked ? `<p>${esc(d.locked)}</p>` : ""}</div>`; }).join("");
+}
+
+// ---------- Ark, fullskjerm, klokke ----------
+function openSheet(id) { closeSheets(); $(id).classList.add("open"); if (id === "sAlerts") { unread = 0; renderFeed(); } }
+function closeSheets() { document.querySelectorAll(".sheet.open").forEach(s => s.classList.remove("open")); }
+document.querySelectorAll("[data-close]").forEach(b => b.onclick = closeSheets);
+$("bAlerts").onclick = () => $("sAlerts").classList.contains("open") ? closeSheets() : openSheet("sAlerts");
+$("bSrc").onclick = () => $("sSrc").classList.contains("open") ? closeSheets() : openSheet("sSrc");
+map.on("click", closeSheets);
+document.addEventListener("keydown", e => { if (e.key === "Escape") closeSheets(); });
+const fsEl = document.documentElement;
+if (!(fsEl.requestFullscreen || fsEl.webkitRequestFullscreen)) $("bFull").hidden = true;
+$("bFull").onclick = () => { try { if (document.fullscreenElement || document.webkitFullscreenElement) (document.exitFullscreen || document.webkitExitFullscreen).call(document); else (fsEl.requestFullscreen || fsEl.webkitRequestFullscreen).call(fsEl).catch?.(() => {}); } catch {} };
+$("optNotify").checked = store.get("notify", false);
+$("optNotify").onchange = async e => {
+  if (e.target.checked && "Notification" in window && Notification.permission !== "granted") { try { if (await Notification.requestPermission() !== "granted") e.target.checked = false; } catch { e.target.checked = false; } }
+  store.set("notify", e.target.checked);
+};
+setInterval(() => { $("clock").textContent = new Date().toISOString().slice(11, 19) + " UTC"; }, 1000);
+
+// ---------- Start ----------
+renderChips(); renderSources();
+for (const id of ORDER) if (enabled.has(id) && !L_[id].locked) setLayer(id, true);
+loadSun().catch(() => {}); setInterval(() => loadSun().catch(() => {}), 60e3);
+setTimeout(() => { booted = true; }, 15000);
+document.addEventListener("visibilitychange", () => { if (!document.hidden) for (const id of enabled) if (L_[id] && Date.now() - (L_[id].updated || 0) > L_[id].every) refresh(L_[id]); });
+</script>
+</body>
+</html>
