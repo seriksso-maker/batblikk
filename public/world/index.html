@@ -93,8 +93,8 @@ button{font:inherit;color:inherit}
 .tg input{accent-color:var(--accent);width:18px;height:18px}
 
 /* Varsel-toast */
-#toast{position:fixed;z-index:1200;left:50%;top:calc(var(--top) + 58px);transform:translate(-50%,-150%);transition:transform .3s;width:min(92vw,420px);background:var(--panel2);border:1px solid var(--lv,var(--line));border-left-width:4px;border-radius:10px;padding:10px 12px;box-shadow:0 10px 30px rgba(0,0,0,.5);cursor:pointer}
-#toast.show{transform:translate(-50%,0)}
+#toast{position:fixed;z-index:1200;left:50%;top:calc(var(--top) + 58px);transform:translate(-50%,-150%);visibility:hidden;transition:transform .3s,visibility 0s .3s;width:min(92vw,420px);background:var(--panel2);border:1px solid var(--lv,var(--line));border-left-width:4px;border-radius:10px;padding:10px 12px;box-shadow:0 10px 30px rgba(0,0,0,.5);cursor:pointer}
+#toast.show{transform:translate(-50%,0);visibility:visible;transition:transform .3s}
 #toast b{display:block;font:700 13px var(--f-disp);letter-spacing:.08em;text-transform:uppercase;color:var(--lv)}
 #hint{position:fixed;z-index:999;left:50%;bottom:calc(var(--bot) + 70px);transform:translateX(-50%);background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:5px 12px;font-size:12px;color:var(--mute);white-space:nowrap}
 
@@ -264,7 +264,7 @@ layerDef({ id: "aurora", label: "Nordlys", color: "#4dff9a", every: 5 * 60e3, on
     const j = await getJSON("https://services.swpc.noaa.gov/json/ovation_aurora_latest.json");
     this.group.clearLayers(); let n = 0;
     for (const [lo, la, v] of j.coordinates) {
-      if (v < 3) continue; n++;
+      if (v < 4) continue; n++;
       const lon = lo > 180 ? lo - 360 : lo;
       const col = v >= 50 ? "#e8ff6b" : v >= 25 ? "#7dff6b" : "#2fe38a";
       L.rectangle([[la - .5, lon - .5], [la + .5, lon + .5]], { renderer: canvas, stroke: false, fillColor: col, fillOpacity: Math.min(.75, .1 + v / 60), interactive: false }).addTo(this.group);
@@ -325,7 +325,7 @@ const SHIP_COL = t => t >= 60 && t < 70 ? "#1f9bff" : t >= 70 && t < 80 ? "#3ddc
 layerDef({ id: "ship", label: "Skip", color: "#3ddc84", every: 15e3, on: false,
   source: "Din SeaPulse-worker (Kystverket AIS, Digitraffic Finland, aisstream.io)", url: "https://batblikk.seriksso.workers.dev", freq: "hvert 15. sekund", cost: "Gratis, men Durable Objects har en daglig gratiskvote",
   async load() {
-    const j = await getJSON(`${SEA_API}/api/ships`);
+    const r = await fetch(`${SEA_API}/api/ships`, { signal: AbortSignal.timeout(20000) }); const j = await r.json().catch(() => ({ error: "HTTP " + r.status }));
     if (j.error) throw new Error(/free tier/i.test(j.error) ? "gratiskvoten er brukt opp i dag" : j.error);
     this.group.clearLayers(); let n = 0;
     for (const s of j.ships || []) {
@@ -401,7 +401,7 @@ layerDef({ id: "wave", label: "Bølger", color: "#59d0ff", every: 30 * 60e3, on:
     for (let i = 0; i < use.length; i += 100) {
       const ch = use.slice(i, i + 100);
       const j = await getJSON(`https://marine-api.open-meteo.com/v1/marine?latitude=${ch.map(p => p[0])}&longitude=${ch.map(p => p[1])}&current=wave_height,wave_direction,wave_period,ocean_current_velocity,ocean_current_direction&cell_selection=sea`);
-      (Array.isArray(j) ? j : [j]).forEach((d, k) => { const c = d.current; if (c && c.wave_height != null) res.push([ch[k][0], ch[k][2], c]); });
+      (Array.isArray(j) ? j : [j]).forEach((d, k) => { const c = d.current; if (!c || c.wave_height == null) return; if (Math.abs(d.latitude - ch[k][0]) > Math.max(.15, step * .5) || Math.abs(L.Util.wrapNum(d.longitude - ch[k][1], [-180, 180], true)) > Math.max(.3, step * .7)) return; res.push([ch[k][0], ch[k][2], c]); });
     }
     this.group.clearLayers();
     const s = z <= 3 ? 16 : 20;
