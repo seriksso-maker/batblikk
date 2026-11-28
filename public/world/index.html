@@ -583,7 +583,7 @@ function extract(d) {
     if (l instanceof L.CircleMarker || l instanceof L.Marker) {
       if (d.id === "sat") return; // satellittene tegnes for seg (globeSats)
       const ll = l.getLatLng(), r = l.getRadius ? l.getRadius() : 4;
-      (PARTICLE.has(d.id) ? g.parts : g.pts).push({ lat: ll.lat, lng: ll.lng, col: lyrColor(l), r, l, alt: d.id === "quake" ? Math.min(.08, r * .003) : d.id === "fly" ? .015 : .003 });
+      (PARTICLE.has(d.id) ? g.parts : g.pts).push({ lat: ll.lat, lng: ll.lng, col: lyrColor(l), r, l, alt: d.id === "quake" ? Math.min(.08, r * .003) : d.id === "fly" ? .006 : .003 });
     }
   });
   return g;
@@ -622,14 +622,15 @@ function loadGlobeLib() {
   if (window.Globe) return Promise.resolve();
   return gLoading || (gLoading = new Promise((ok, bad) => { const sc = document.createElement("script"); sc.src = "https://cdn.jsdelivr.net/npm/globe.gl@2.45.3/dist/globe.gl.min.js"; sc.onload = ok; sc.onerror = () => { gLoading = null; bad(new Error("globe.gl lastet ikke")); }; document.head.appendChild(sc); }));
 }
-let povT;
+let povT, gScale = 1;
+const ptR = p => Math.max(.06, p.r * .035) * gScale;
 function makeGlobe() {
   const el = $("globe");
   G = new Globe(el, { rendererConfig: { antialias: devicePixelRatio < 2, powerPreference: "high-performance" } })
     .width(innerWidth).height(innerHeight)
     .globeImageUrl(TEX + "earth-night.jpg").bumpImageUrl(TEX + "earth-topology.png").backgroundImageUrl(TEX + "night-sky.png")
     .atmosphereColor("#5fe3cc").atmosphereAltitude(.17)
-    .pointLat("lat").pointLng("lng").pointColor("col").pointAltitude("alt").pointRadius(p => Math.max(.06, p.r * .035)).pointResolution(8).pointsTransitionDuration(0)
+    .pointLat("lat").pointLng("lng").pointColor("col").pointAltitude("alt").pointRadius(ptR).pointResolution(8).pointsTransitionDuration(0)
     .pointLabel(() => "").onPointClick(p => showInfo(popupOf(p.l)))
     .hexBinPointLat("lat").hexBinPointLng("lng").hexBinPointWeight("w").hexBinResolution(3).hexBinMerge(true).hexTransitionDuration(0)
     .hexAltitude(h => Math.min(.03, h.sumWeight * .004)).hexTopColor(h => `rgba(90,255,160,${Math.min(.8, .15 + h.sumWeight * .12)})`).hexSideColor(h => `rgba(90,255,160,${Math.min(.4, .05 + h.sumWeight * .05)})`)
@@ -640,7 +641,7 @@ function makeGlobe() {
     .labelLat("lat").labelLng("lng").labelAltitude("alt").labelText("name").labelSize(1.1).labelDotRadius(.45).labelColor(() => "#5fe3cc").labelResolution(2).labelsTransitionDuration(0)
     .labelLabel(() => "").onLabelClick(x => showInfo(popupOf(x.l)))
     .onGlobeClick(() => closeSheets())
-    .onZoom(pov => { clearTimeout(povT); povT = setTimeout(() => { map.setView([pov.lat, pov.lng], zoomFromAlt(pov.altitude), { animate: false }); }, 700); });
+    .onZoom(pov => { clearTimeout(povT); povT = setTimeout(() => { map.setView([pov.lat, pov.lng], zoomFromAlt(pov.altitude), { animate: false }); const sc = Math.min(1, Math.max(.12, pov.altitude / 1.5)); if (Math.abs(sc - gScale) > .05) { gScale = sc; G.pointRadius(ptR); } }, 700); });
   G.renderer().setPixelRatio(Math.min(2, devicePixelRatio || 1));
   const c = G.controls(); c.autoRotate = true; c.autoRotateSpeed = .35; c.enableDamping = true;
   c.addEventListener("start", () => { c.autoRotate = false; });
@@ -657,7 +658,8 @@ async function setMode(m) {
     document.body.classList.add("g3d"); $("globe").hidden = false; $("gload").hidden = true;
     if (!G) makeGlobe(); else G.resumeAnimation();
     const c = map.getCenter().wrap();
-    G.pointOfView({ lat: c.lat, lng: c.lng, altitude: altFromZoom(map.getZoom()) }, 0);
+    const a0 = altFromZoom(map.getZoom()); gScale = Math.min(1, Math.max(.12, a0 / 1.5));
+    G.pointOfView({ lat: c.lat, lng: c.lng, altitude: a0 }, 0); G.pointRadius(p => ptR(p));
     for (const id of ORDER) if (L_[id]) L_[id].g = null;
     renderGlobe();
   } else {
