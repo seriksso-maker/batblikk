@@ -12,7 +12,7 @@ const ALARM_MS = 30 * 1000; // vekker objektet jevnlig så det holder seg i live
 const STALE_MS = 90 * 1000; // ingen data på så lenge = koble til på nytt
 // Øk VERSION ved endringer i AisHub. En kjørende, eldre instans starter seg da på nytt
 // (Cloudflare bytter ikke alltid kode i et objekt som får jevnlige forespørsler).
-const VERSION = 6;
+const VERSION = 7;
 const HUB_NAME = "norge-eu-2";
 const TRACK_MS = 6 * 60 * 60 * 1000; // husk rute 6 timer bakover
 const TRACK_MAX = 400;
@@ -34,11 +34,9 @@ export class AisHub extends DurableObject {
       for (const col of ["imo INTEGER", "len INTEGER", "beam INTEGER", "draught REAL", "eta TEXT"]) {
         try { sql.exec("ALTER TABLE ship_static ADD COLUMN " + col); } catch {} // finnes allerede
       }
-      for (const row of sql.exec("SELECT * FROM ship_static")) {
-        const s = { mmsi: row.mmsi };
-        for (const k of STATIC_KEYS) if (row[k] !== null) s[k] = row[k];
-        this.ships.set(row.mmsi, s);
-      }
+      // Ingen full innlesing av tabellen her: den har titusenvis av rader, og hver oppstart
+      // av objektet leste alle sammen. Det brukte opp gratiskvoten for leste rader (5 mill./døgn).
+      // Navn og type hentes i stedet for én båt om gangen første gang den dukker opp (loadStatic).
     });
   }
 
@@ -161,8 +159,18 @@ export class AisHub extends DurableObject {
     }
   }
 
+  loadStatic(mmsi) {
+    const s = { mmsi };
+    for (const row of this.ctx.storage.sql.exec("SELECT * FROM ship_static WHERE mmsi = ?", mmsi)) {
+      for (const k of STATIC_KEYS) if (row[k] !== null) s[k] = row[k];
+    }
+    this.stats.loaded = (this.stats.loaded || 0) + 1;
+    return s;
+  }
+
   update(msg) {
-    const s = this.ships.get(msg.mmsi) || { mmsi: msg.mmsi };
+    if (!msg.mmsi) return;
+    const s = this.ships.get(msg.mmsi) || this.loadStatic(msg.mmsi);
     for (const [k, v] of Object.entries(msg)) {
       if (k === "type" || v === null || v === undefined) continue;
       if (STATIC_KEYS.includes(k) && s[k] !== v) this.dirty.add(msg.mmsi);
