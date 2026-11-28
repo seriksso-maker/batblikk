@@ -27,8 +27,18 @@
   a.sea:hover,a.sea:focus-visible{box-shadow:0 0 0 2px #5fe3cc,0 16px 50px rgba(40,200,180,.4)}
   .remember{color:var(--mute);font-size:14px;display:inline-flex;gap:8px;align-items:center;cursor:pointer}
   .remember input{accent-color:#5fe3cc;width:18px;height:18px}
-  a.world{color:#5fe3cc;font:600 15px 'Barlow',sans-serif;letter-spacing:.03em;text-decoration:none;padding:10px 16px;border:1px solid rgba(95,227,204,.35);border-radius:999px}
-  a.world:hover,a.world:focus-visible{background:rgba(95,227,204,.1);outline:none}
+  .more{display:grid;grid-template-columns:1fr 1fr;gap:12px;width:min(100%,560px)}
+  @media (min-width:1000px) and (min-height:520px){.more{width:min(100%,1180px)}}
+  a.tile{display:flex;align-items:center;gap:12px;min-width:0;padding:12px 14px;border-radius:14px;text-decoration:none;color:var(--fg);background:rgba(255,255,255,.04);transition:transform .18s,box-shadow .18s,background .18s;-webkit-tap-highlight-color:transparent}
+  a.tile .ic{flex:none;width:44px;height:44px;border-radius:11px;display:grid;place-items:center;overflow:hidden}
+  a.tile .ic img{width:100%;height:100%;display:block}
+  a.tile b{display:block;font:700 18px/1.1 'Barlow Condensed',sans-serif;letter-spacing:.03em}
+  a.tile small{display:block;color:var(--mute);font-size:13px;line-height:1.3;margin-top:2px}
+  a.tile.world{box-shadow:0 0 0 1px rgba(95,227,204,.35)} a.tile.world .ic{background:radial-gradient(circle at 35% 30%,#1b5f7a,#06182c 70%)}
+  a.tile.vaer{box-shadow:0 0 0 1px rgba(90,170,255,.35)}
+  a.tile:hover,a.tile:focus-visible{transform:translateY(-2px);background:rgba(255,255,255,.07);outline:none}
+  a.tile.world:focus-visible{box-shadow:0 0 0 2px #5fe3cc} a.tile.vaer:focus-visible{box-shadow:0 0 0 2px #5a9bff}
+  @media (max-width:380px){.more{grid-template-columns:1fr}}
   footer{color:var(--mute);font-size:13px;text-align:center;line-height:1.6}
   footer b{color:#c9d6e3;font-weight:600}
 </style>
@@ -39,20 +49,23 @@
     <a class="app sky" href="https://seriksso-maker.github.io/flyradar/" data-app="fly" data-cta="Åpne flykartet ›"><img src="start-sky.jpg?v=2" alt="SkyPulse – flytrafikk i sanntid" width="749" height="413"></a>
     <a class="app sea" href="./" data-app="sea" data-cta="Åpne skipskartet ›"><img src="start-sea.jpg?v=2" alt="SeaPulse – skipstrafikk i sanntid" width="749" height="413"></a>
   </div>
-  <a class="world" href="world/">Nytt: WorldPuls LIVE, hele verden på ett kart ›</a>
+  <div class="more">
+    <a class="tile world" href="world/" data-app="world"><span class="ic"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#5fe3cc" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.6 2.6 3.8 5.6 3.8 9s-1.2 6.4-3.8 9c-2.6-2.6-3.8-5.6-3.8-9S9.4 5.6 12 3z"/></svg></span><span><b>WorldPuls LIVE</b><small>Hele verden på en 3D-klode</small></span></a>
+    <a class="tile vaer" href="https://seriksso-maker.github.io/vaerappen/" data-app="vaer"><span class="ic"><img src="vaer-icon.png" alt="" width="44" height="44"></span><span><b>Sjekk været</b><small>Snittet av åtte værvarsler</small></span></a>
+  </div>
   <label class="remember"><input type="checkbox" id="rem">Husk valget mitt neste gang</label>
   <footer>Utviklet av <b>Grøtbekklia AS</b><br>Versjon 1.0.0</footer>
 <script>
   const KEY = "livekart.valg";
   const get = () => { try { return localStorage.getItem(KEY); } catch { return null; } };
   const set = v => { try { v ? localStorage.setItem(KEY, v) : localStorage.removeItem(KEY); } catch {} };
-  const links = { sea: document.querySelector("[data-app=sea]").href, fly: document.querySelector("[data-app=fly]").href };
+  const links = Object.fromEntries([...document.querySelectorAll("[data-app]")].map(a => [a.dataset.app, a.href]));
   // ?velg viser alltid valget (for å kunne bytte), ellers hopp rett til husket app
   const saved = get();
   if (saved && links[saved] && !new URLSearchParams(location.search).has("velg")) location.replace(links[saved]);
   document.getElementById("rem").checked = !!saved;
   document.getElementById("rem").onchange = e => { if (!e.target.checked) set(null); };
-  for (const a of document.querySelectorAll("a.app")) a.addEventListener("click", () => { if (document.getElementById("rem").checked) set(a.dataset.app); });
+  for (const a of document.querySelectorAll("a[data-app]")) a.addEventListener("click", () => { if (document.getElementById("rem").checked) set(a.dataset.app); });
 </script>
 </body>
 </html>
