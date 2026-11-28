@@ -595,7 +595,7 @@ function renderGlobe() {
     const d = L_[id]; if (d.locked || !enabled.has(id)) continue;
     if (!d.g) d.g = extract(d);
     P.push(...d.g.pts); H.push(...d.g.hex); PO.push(...d.g.polys); PA.push(...d.g.paths);
-    if (d.g.parts.length) PS.push({ list: d.g.parts, col: d.color, size: .9 });
+    if (d.g.parts.length) PS.push({ list: d.g.parts, col: d.color, size: 2 });
   }
   gStatic = PS;
   G.pointsData(P).hexBinPointsData(H).polygonsData(PO).pathsData(PA);
@@ -610,7 +610,7 @@ function globeSats() {
     if (/ISS|TIANHE|HUBBLE/.test(s.name)) labels.push({ lat: ll.lat, lng: ll.lng, alt, name: s.name.replace(/ \(.*\)/, ""), l: m });
     else sats.push({ lat: ll.lat, lng: ll.lng, alt });
   });
-  G.particlesData(on ? [...gStatic, { list: sats, col: "#c9d6ff", size: .8 }] : gStatic).labelsData(labels);
+  G.particlesData(on ? [...gStatic, { list: sats, col: "#c9d6ff", size: 2.5 }] : gStatic).labelsData(labels);
 }
 function showInfo(html) {
   if (!html) return;
