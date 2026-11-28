@@ -437,9 +437,14 @@ async function handle(request, env, ctx) {
         });
       }
       let out = data;
-      if (dtJob || relayJob || asJob) {
-        await Promise.all([dtJob, relayJob, asJob]);
-        out = await (await hub.fetch(request)).json();
+      // Ikke la svaret vente på innhentingen (Kystverket, aisstream og Finland kan ta 10–25 s til
+      // sammen). Den fortsetter i bakgrunnen, og neste oppdatering fra kartet får de nye båtene.
+      const jobs = [dtJob, relayJob, asJob].filter(Boolean);
+      if (jobs.length) {
+        if (!data.ships || data.ships.length < 50) {
+          await Promise.all(jobs); // helt kald start: vent, så kartet ikke står tomt
+          out = await (await hub.fetch(request)).json();
+        } else ctx.waitUntil(Promise.all(jobs));
       }
       out.stats.relayError = relayError;
       out.stats.finlandError = dtError;

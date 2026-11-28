@@ -855,7 +855,7 @@ map.on("zoomend", render);
 // ---- Henting ----
 async function poll() {
   try {
-    const r = await fetch(API + "api/ships", { cache:"no-store", signal: AbortSignal.timeout ? AbortSignal.timeout(20000) : undefined });
+    const r = await fetch(API + "api/ships", { cache:"no-store", signal: AbortSignal.timeout ? AbortSignal.timeout(45000) : undefined });
     if (!r.ok) throw new Error(r.status);
     const data = await r.json();
     ships = data.ships || []; byMmsi = new Map(ships.map(s => [s.mmsi, s])); lastNow = data.now || Date.now();
