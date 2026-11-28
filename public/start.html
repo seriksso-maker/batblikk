@@ -27,6 +27,8 @@
   a.sea:hover,a.sea:focus-visible{box-shadow:0 0 0 2px #5fe3cc,0 16px 50px rgba(40,200,180,.4)}
   .remember{color:var(--mute);font-size:14px;display:inline-flex;gap:8px;align-items:center;cursor:pointer}
   .remember input{accent-color:#5fe3cc;width:18px;height:18px}
+  a.world{color:#5fe3cc;font:600 15px 'Barlow',sans-serif;letter-spacing:.03em;text-decoration:none;padding:10px 16px;border:1px solid rgba(95,227,204,.35);border-radius:999px}
+  a.world:hover,a.world:focus-visible{background:rgba(95,227,204,.1);outline:none}
   footer{color:var(--mute);font-size:13px;text-align:center;line-height:1.6}
   footer b{color:#c9d6e3;font-weight:600}
 </style>
@@ -37,6 +39,7 @@
     <a class="app sky" href="https://seriksso-maker.github.io/flyradar/" data-app="fly" data-cta="Åpne flykartet ›"><img src="start-sky.jpg?v=2" alt="SkyPulse – flytrafikk i sanntid" width="749" height="413"></a>
     <a class="app sea" href="./" data-app="sea" data-cta="Åpne skipskartet ›"><img src="start-sea.jpg?v=2" alt="SeaPulse – skipstrafikk i sanntid" width="749" height="413"></a>
   </div>
+  <a class="world" href="world/">Nytt: WorldPuls LIVE, hele verden på ett kart ›</a>
   <label class="remember"><input type="checkbox" id="rem">Husk valget mitt neste gang</label>
   <footer>Utviklet av <b>Grøtbekklia AS</b><br>Versjon 1.0.0</footer>
 <script>
