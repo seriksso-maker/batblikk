@@ -26,6 +26,13 @@
 html,body{height:100%;margin:0;background:var(--bg);color:var(--fg);font:15px/1.4 var(--f-body);overflow:hidden;-webkit-text-size-adjust:100%}
 button{font:inherit;color:inherit}
 #map{position:fixed;inset:0;background:#050b16}
+#globe{position:fixed;inset:0;z-index:1;background:#02050c;touch-action:none}
+#globe[hidden]{display:none}
+body.g3d #map{visibility:hidden}
+body.g3d #hint{display:none}
+.ib.txt{font:700 13px var(--f-mono);letter-spacing:.02em}
+#gload{position:fixed;z-index:2;left:50%;top:50%;transform:translate(-50%,-50%);color:var(--mute);font:500 12px var(--f-mono)}
+#gload[hidden]{display:none}
 .leaflet-container{background:#050b16;font-family:var(--f-body)}
 .leaflet-control-attribution{background:rgba(5,13,28,.7)!important;color:var(--mute)!important;font-size:10px}
 .leaflet-control-attribution a{color:var(--mute)!important}
@@ -101,6 +108,8 @@ button{font:inherit;color:inherit}
 /* Popup */
 .leaflet-popup-content-wrapper,.leaflet-popup-tip{background:var(--panel2);color:var(--fg);border:1px solid var(--line);box-shadow:0 8px 24px rgba(0,0,0,.5)}
 .leaflet-popup-content{margin:12px 14px;font-size:13px;line-height:1.45;min-width:180px}
+#sInfo .body{margin:0;font-size:14px;min-width:0}
+#sInfo .body h3{font-size:19px}
 .leaflet-popup-content h3{margin:0 0 4px;font:700 16px var(--f-disp);letter-spacing:.03em}
 .leaflet-popup-content .k{color:var(--mute)}
 .leaflet-popup-content table{border-collapse:collapse;font-variant-numeric:tabular-nums}
@@ -116,10 +125,13 @@ button{font:inherit;color:inherit}
 </head>
 <body>
 <div id="map" aria-label="Verdenskart med sanntidsdata"></div>
+<div id="globe" hidden aria-label="3D-jordklode med sanntidsdata"></div>
+<div id="gload" hidden>Laster jordkloden …</div>
 
 <div id="hud">
   <div class="brand"><b>WORLD<span>PULS</span> LIVE</b><small><span class="dot" id="live"></span><span id="clock">--:--:-- UTC</span></small></div>
   <div class="sp"></div>
+  <button class="ib txt" id="bMode" aria-label="Bytt mellom 3D-jordklode og flatt kart">2D</button>
   <button class="ib" id="bAlerts" aria-label="Vis hendelser"><svg viewBox="0 0 24 24"><path d="M6 8a6 6 0 1 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg><span class="badge" id="nAlerts" hidden>0</span></button>
   <button class="ib" id="bSrc" aria-label="Vis datakilder og innstillinger"><svg viewBox="0 0 24 24"><ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v14c0 1.7 3.6 3 8 3s8-1.3 8-3V5"/><path d="M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3"/></svg></button>
   <button class="ib" id="bFull" aria-label="Fullskjerm"><svg viewBox="0 0 24 24"><path d="M8 3H5a2 2 0 0 0-2 2v3M21 8V5a2 2 0 0 0-2-2h-3M3 16v3a2 2 0 0 0 2 2h3M16 21h3a2 2 0 0 0 2-2v-3"/></svg></button>
@@ -139,6 +151,10 @@ button{font:inherit;color:inherit}
 <section class="sheet" id="sAlerts" aria-label="Hendelser">
   <header><h2>Hendelser</h2><span class="sp"></span><button class="close" data-close aria-label="Lukk">×</button></header>
   <div class="body" id="feed"><p class="empty">Ingen store hendelser akkurat nå.</p></div>
+</section>
+<section class="sheet" id="sInfo" aria-label="Detaljer">
+  <header><h2 id="infoT">Detaljer</h2><span class="sp"></span><button class="close" data-close aria-label="Lukk">×</button></header>
+  <div class="body leaflet-popup-content" id="infoB"></div>
 </section>
 <section class="sheet" id="sSrc" aria-label="Datakilder">
   <header><h2>Datakilder</h2><span class="sp"></span><button class="close" data-close aria-label="Lukk">×</button></header>
@@ -197,14 +213,19 @@ function renderFeed() {
 }
 $("feed").addEventListener("click", ev => {
   const r = ev.target.closest(".row"); if (!r) return; const e = events.get(r.dataset.id); if (!e) return;
-  if (e.lat != null) { closeSheets(); map.flyTo([e.lat, e.lon], Math.max(map.getZoom(), e.z || 5), { duration: 1.2 }); }
+  if (e.lat != null) { closeSheets(); goTo(e); }
 });
+function goTo(e) {
+  const z = Math.max(map.getZoom(), e.z || 5);
+  if (mode === "3d" && G) { G.controls().autoRotate = false; G.pointOfView({ lat: e.lat, lng: e.lon, altitude: altFromZoom(Math.min(z, 6)) }, 1500); }
+  else map.flyTo([e.lat, e.lon], z, { duration: 1.2 });
+}
 let toastTimer;
 function toast(e) {
   const t = $("toast");
   t.style.setProperty("--lv", LV[e.lv]);
   t.innerHTML = `<b>${e.lv === "red" ? "Kritisk" : "Varsel"} · ${esc(e.layer)}</b>${esc(e.title)}`;
-  t.onclick = () => { t.classList.remove("show"); if (e.lat != null) map.flyTo([e.lat, e.lon], Math.max(map.getZoom(), e.z || 5)); };
+  t.onclick = () => { t.classList.remove("show"); if (e.lat != null) goTo(e); };
   t.classList.add("show"); clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove("show"), 7000);
   try { navigator.vibrate && navigator.vibrate(e.lv === "red" ? [200, 100, 200] : 120); } catch {}
   if (store.get("notify", false) && "Notification" in window && Notification.permission === "granted" && document.hidden) {
@@ -294,7 +315,7 @@ layerDef({ id: "sat", label: "Satellitter", color: "#c9d6ff", every: 6 * 36e5, o
     return satrecs.length;
   } });
 function satPos(rec, d) { const pv = satellite.propagate(rec, d); if (!pv.position) return null; const g = satellite.eciToGeodetic(pv.position, satellite.gstime(d)); const v = pv.velocity; return { lat: satellite.degreesLat(g.latitude), lon: satellite.degreesLong(g.longitude), h: g.height, v: v ? Math.hypot(v.x, v.y, v.z) : null }; }
-function tickSats() { if (!map.hasLayer(L_.sat.group)) return; const d = new Date(); satrecs.forEach((s, i) => { const p = satPos(s.rec, d); if (p) satMarkers[i].setLatLng([p.lat, p.lon]); }); }
+function tickSats() { if (!map.hasLayer(L_.sat.group)) return; const d = new Date(); satrecs.forEach((s, i) => { const p = satPos(s.rec, d); if (p) { satMarkers[i].setLatLng([p.lat, p.lon]); satMarkers[i]._alt = p.h / 6371; } }); if (mode === "3d") globeSats(); }
 function satPopup(s) { const p = satPos(s.rec, new Date()); return `<h3>${esc(s.name)}</h3>${p ? popupTable([["Høyde", p.h.toFixed(0) + " km"], ["Fart", p.v ? (p.v * 3600).toFixed(0) + " km/t" : null], ["Posisjon", `${p.lat.toFixed(2)}°, ${p.lon.toFixed(2)}°`]]) : ""}`; }
 
 // Fly: flyradar-proxyen (adsb.lol, airplanes.live, adsb.fi)
@@ -480,12 +501,13 @@ async function refresh(d) {
   try { const n = await d.load(); d.count = n; d.state = "ok"; d.updated = Date.now(); d.error = null; }
   catch (e) { d.state = "err"; d.error = e.message || String(e); console.warn(d.id, e); }
   updateChip(d); renderSources(); renderFeed();
+  d.g = null; renderGlobe();
 }
 function setLayer(id, on) {
   const d = L_[id]; if (d.locked) return;
   if (on) { enabled.add(id); d.group.addTo(map); refresh(d); clearInterval(timers[id]); timers[id] = setInterval(() => refresh(d), d.every); }
   else { enabled.delete(id); d.group.remove(); clearInterval(timers[id]); }
-  store.set("layers", [...enabled]); renderChips(); updateHint();
+  store.set("layers", [...enabled]); renderChips(); updateHint(); renderGlobe();
 }
 $("chips").addEventListener("click", e => {
   const b = e.target.closest(".chip"); if (!b) return; const d = L_[b.dataset.id];
@@ -522,8 +544,125 @@ $("optNotify").onchange = async e => {
 };
 setInterval(() => { $("clock").textContent = new Date().toISOString().slice(11, 19) + " UTC"; }, 1000);
 
+
+// ---------- 3D-jordklode (globe.gl) ----------
+// Kloden leser de samme kartlagene som det flate kartet: hvert lag tegnes i Leaflet,
+// og kloden henter punkter, flater og linjer derfra. Det flate kartet følger klodens
+// utsnitt i bakgrunnen, så fly, webkameraer og bølger hentes for der du ser.
+const TEX = "https://cdn.jsdelivr.net/npm/three-globe@2.45.3/example/img/";
+const PARTICLE = new Set(["ship"]);
+let G = null, gLoading = null, mode = store.get("mode", "3d");
+const altFromZoom = z => Math.max(0.08, 5 / Math.pow(2, z - 1));
+const zoomFromAlt = a => Math.max(2, Math.min(12, Math.round(Math.log2(5 / Math.max(.02, a)) + 1)));
+const hexA = (c, a) => { const m = /^#?([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})/i.exec(c || ""); return m ? `rgba(${parseInt(m[1], 16)},${parseInt(m[2], 16)},${parseInt(m[3], 16)},${a})` : `rgba(255,255,255,${a})`; };
+function lyrColor(l) {
+  const o = l.options || {};
+  if (o.icon) { const m = /(?:fill|stroke)="(#[0-9a-fA-F]{3,8})"/.exec(o.icon.options.html || ""); return m ? m[1] : "#ffffff"; }
+  return o.fillColor || o.color || "#ffffff";
+}
+function popupOf(l) { const p = l && l.getPopup && l.getPopup(); if (!p) return null; const c = p.getContent(); return typeof c === "function" ? c(l) : c; }
+function extract(d) {
+  const g = { pts: [], parts: [], polys: [], paths: [], hex: [] };
+  d.group.eachLayer(l => {
+    if (l instanceof L.TileLayer || l === night) return;
+    if (l instanceof L.GeoJSON) {
+      const col = l.getLayers()[0]?.options?.color || d.color, gj = l.toGeoJSON();
+      for (const f of gj.type === "FeatureCollection" ? gj.features : [gj]) if (/Polygon/.test(f.geometry?.type || "")) g.polys.push({ f, col, l });
+      return;
+    }
+    if (l instanceof L.Rectangle) { const c = l.getBounds().getCenter(); g.hex.push({ lat: c.lat, lng: c.lng, w: l.options.fillOpacity || .3 }); return; }
+    if (l instanceof L.Polyline && !(l instanceof L.Polygon)) { g.paths.push({ c: l.getLatLngs().map(p => [p.lat, p.lng]), col: l.options.color || d.color }); return; }
+    if (l instanceof L.CircleMarker || l instanceof L.Marker) {
+      if (d.id === "sat") return; // satellittene tegnes for seg (globeSats)
+      const ll = l.getLatLng(), r = l.getRadius ? l.getRadius() : 4;
+      (PARTICLE.has(d.id) ? g.parts : g.pts).push({ lat: ll.lat, lng: ll.lng, col: lyrColor(l), r, l, alt: d.id === "quake" ? Math.min(.12, r * .005) : d.id === "fly" ? .02 : .004 });
+    }
+  });
+  return g;
+}
+function renderGlobe() {
+  if (!G || mode !== "3d") return;
+  const P = [], H = [], PO = [], PA = [], PS = [];
+  for (const id of ORDER) {
+    const d = L_[id]; if (d.locked || !enabled.has(id)) continue;
+    if (!d.g) d.g = extract(d);
+    P.push(...d.g.pts); H.push(...d.g.hex); PO.push(...d.g.polys); PA.push(...d.g.paths);
+    if (d.g.parts.length) PS.push({ list: d.g.parts, col: d.color, size: .9 });
+  }
+  gStatic = PS;
+  G.pointsData(P).hexBinPointsData(H).polygonsData(PO).pathsData(PA);
+  globeSats();
+}
+let gStatic = [];
+function globeSats() {
+  if (!G || mode !== "3d") return;
+  const on = enabled.has("sat") && satMarkers.length, sats = [], labels = [];
+  if (on) satrecs.forEach((s, i) => {
+    const m = satMarkers[i], ll = m.getLatLng(), alt = m._alt || .06;
+    if (/ISS|TIANHE|HUBBLE/.test(s.name)) labels.push({ lat: ll.lat, lng: ll.lng, alt, name: s.name.replace(/ \(.*\)/, ""), l: m });
+    else sats.push({ lat: ll.lat, lng: ll.lng, alt });
+  });
+  G.particlesData(on ? [...gStatic, { list: sats, col: "#c9d6ff", size: .8 }] : gStatic).labelsData(labels);
+}
+function showInfo(html) {
+  if (!html) return;
+  const tmp = document.createElement("div"); tmp.innerHTML = html;
+  const h = tmp.querySelector("h3"); $("infoT").textContent = h ? h.textContent : "Detaljer"; if (h) h.remove();
+  $("infoB").innerHTML = tmp.innerHTML; openSheet("sInfo");
+}
+function loadGlobeLib() {
+  if (window.Globe) return Promise.resolve();
+  return gLoading || (gLoading = new Promise((ok, bad) => { const sc = document.createElement("script"); sc.src = "https://cdn.jsdelivr.net/npm/globe.gl@2.45.3/dist/globe.gl.min.js"; sc.onload = ok; sc.onerror = () => { gLoading = null; bad(new Error("globe.gl lastet ikke")); }; document.head.appendChild(sc); }));
+}
+let povT;
+function makeGlobe() {
+  const el = $("globe");
+  G = new Globe(el, { rendererConfig: { antialias: devicePixelRatio < 2, powerPreference: "high-performance" } })
+    .width(innerWidth).height(innerHeight)
+    .globeImageUrl(TEX + "earth-night.jpg").bumpImageUrl(TEX + "earth-topology.png").backgroundImageUrl(TEX + "night-sky.png")
+    .atmosphereColor("#5fe3cc").atmosphereAltitude(.17)
+    .pointLat("lat").pointLng("lng").pointColor("col").pointAltitude("alt").pointRadius(p => Math.max(.12, p.r * .09)).pointResolution(8).pointsTransitionDuration(0)
+    .pointLabel(() => "").onPointClick(p => showInfo(popupOf(p.l)))
+    .hexBinPointLat("lat").hexBinPointLng("lng").hexBinPointWeight("w").hexBinResolution(3).hexBinMerge(true).hexTransitionDuration(0)
+    .hexAltitude(h => Math.min(.03, h.sumWeight * .004)).hexTopColor(h => `rgba(90,255,160,${Math.min(.8, .15 + h.sumWeight * .12)})`).hexSideColor(h => `rgba(90,255,160,${Math.min(.4, .05 + h.sumWeight * .05)})`)
+    .polygonGeoJsonGeometry(x => x.f.geometry).polygonCapColor(x => hexA(x.col, .28)).polygonSideColor(x => hexA(x.col, .12)).polygonStrokeColor(x => x.col).polygonAltitude(.006).polygonsTransitionDuration(0)
+    .polygonLabel(() => "").onPolygonClick(x => showInfo(popupOf(x.l)))
+    .pathPoints("c").pathPointLat(p => p[0]).pathPointLng(p => p[1]).pathColor(x => x.col).pathStroke(1.5).pathDashLength(.4).pathDashGap(.15).pathDashAnimateTime(6000).pathTransitionDuration(0)
+    .particlesList("list").particleLat("lat").particleLng("lng").particleAltitude("alt").particlesColor("col").particlesSize("size").particlesSizeAttenuation(false).particleLabel(() => "")
+    .labelLat("lat").labelLng("lng").labelAltitude("alt").labelText("name").labelSize(1.1).labelDotRadius(.45).labelColor(() => "#5fe3cc").labelResolution(2).labelsTransitionDuration(0)
+    .labelLabel(() => "").onLabelClick(x => showInfo(popupOf(x.l)))
+    .onGlobeClick(() => closeSheets())
+    .onZoom(pov => { clearTimeout(povT); povT = setTimeout(() => { map.setView([pov.lat, pov.lng], zoomFromAlt(pov.altitude), { animate: false }); }, 700); });
+  G.renderer().setPixelRatio(Math.min(2, devicePixelRatio || 1));
+  const c = G.controls(); c.autoRotate = true; c.autoRotateSpeed = .35; c.enableDamping = true;
+  c.addEventListener("start", () => { c.autoRotate = false; });
+  addEventListener("resize", () => G && G.width(innerWidth).height(innerHeight));
+}
+async function setMode(m) {
+  mode = m; store.set("mode", m);
+  $("bMode").textContent = m === "3d" ? "2D" : "3D";
+  $("bMode").setAttribute("aria-label", m === "3d" ? "Vis flatt kart" : "Vis 3D-jordklode");
+  if (m === "3d") {
+    $("gload").hidden = false;
+    try { await loadGlobeLib(); } catch (e) { $("gload").textContent = "Kunne ikke laste jordkloden. Viser flatt kart."; setTimeout(() => $("gload").hidden = true, 4000); mode = "2d"; store.set("mode", "2d"); $("bMode").textContent = "3D"; return; }
+    if (mode !== "3d") return;
+    document.body.classList.add("g3d"); $("globe").hidden = false; $("gload").hidden = true;
+    if (!G) makeGlobe(); else G.resumeAnimation();
+    const c = map.getCenter().wrap();
+    G.pointOfView({ lat: c.lat, lng: c.lng, altitude: altFromZoom(map.getZoom()) }, 0);
+    for (const id of ORDER) if (L_[id]) L_[id].g = null;
+    renderGlobe();
+  } else {
+    if (G) { const p = G.pointOfView(); map.setView([p.lat, p.lng], zoomFromAlt(p.altitude), { animate: false }); G.pauseAnimation(); }
+    document.body.classList.remove("g3d"); $("globe").hidden = true; $("gload").hidden = true;
+    map.invalidateSize();
+  }
+}
+$("bMode").onclick = () => setMode(mode === "3d" ? "2d" : "3d");
+
 // ---------- Start ----------
 renderChips(); renderSources();
+setMode(mode);
 for (const id of ORDER) if (enabled.has(id) && !L_[id].locked) setLayer(id, true);
 loadSun().catch(() => {}); setInterval(() => loadSun().catch(() => {}), 60e3);
 setTimeout(() => { booted = true; }, 15000);
