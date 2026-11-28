@@ -641,7 +641,7 @@ function makeGlobe() {
     .labelLat("lat").labelLng("lng").labelAltitude("alt").labelText("name").labelSize(1.1).labelDotRadius(.45).labelColor(() => "#5fe3cc").labelResolution(2).labelsTransitionDuration(0)
     .labelLabel(() => "").onLabelClick(x => showInfo(popupOf(x.l)))
     .onGlobeClick(() => closeSheets())
-    .onZoom(pov => { clearTimeout(povT); povT = setTimeout(() => { map.setView([pov.lat, pov.lng], zoomFromAlt(pov.altitude), { animate: false }); const sc = Math.min(1, Math.max(.12, pov.altitude / 1.5)); if (Math.abs(sc - gScale) > .05) { gScale = sc; G.pointRadius(ptR); } }, 700); });
+    .onZoom(pov => { clearTimeout(povT); povT = setTimeout(() => { map.setView([pov.lat, pov.lng], zoomFromAlt(pov.altitude), { animate: false }); const sc = Math.min(1, Math.max(.12, pov.altitude / 1.5)); if (Math.abs(sc - gScale) > .05) { gScale = sc; G.pointRadius(p => ptR(p)); } }, 700); });
   G.renderer().setPixelRatio(Math.min(2, devicePixelRatio || 1));
   const c = G.controls(); c.autoRotate = true; c.autoRotateSpeed = .35; c.enableDamping = true;
   c.addEventListener("start", () => { c.autoRotate = false; });
