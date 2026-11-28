@@ -560,6 +560,14 @@ function lyrColor(l) {
   if (o.icon) { const m = /(?:fill|stroke)="(#[0-9a-fA-F]{3,8})"/.exec(o.icon.options.html || ""); return m ? m[1] : "#ffffff"; }
   return o.fillColor || o.color || "#ffffff";
 }
+// Kloden følger d3-geo: ytre ring med klokka, hull mot klokka. Mange farevarsler bruker motsatt
+// retning (GeoJSON-standarden), og da dekker flaten hele kloden utenom området.
+const ringArea = r => { let a = 0; for (let i = 0, j = r.length - 1; i < r.length; j = i++) a += (r[j][0] - r[i][0]) * (r[j][1] + r[i][1]); return a / 2; };
+const orient = (r, cw) => (ringArea(r) < 0) === cw ? r : r.slice().reverse(); // ringArea < 0 betyr med klokka
+function d3geom(g) {
+  const poly = rings => rings.map((r, i) => orient(r, i === 0));
+  return g.type === "Polygon" ? { type: "Polygon", coordinates: poly(g.coordinates) } : { type: "MultiPolygon", coordinates: g.coordinates.map(poly) };
+}
 function popupOf(l) { const p = l && l.getPopup && l.getPopup(); if (!p) return null; const c = p.getContent(); return typeof c === "function" ? c(l) : c; }
 function extract(d) {
   const g = { pts: [], parts: [], polys: [], paths: [], hex: [] };
@@ -625,7 +633,7 @@ function makeGlobe() {
     .pointLabel(() => "").onPointClick(p => showInfo(popupOf(p.l)))
     .hexBinPointLat("lat").hexBinPointLng("lng").hexBinPointWeight("w").hexBinResolution(3).hexBinMerge(true).hexTransitionDuration(0)
     .hexAltitude(h => Math.min(.03, h.sumWeight * .004)).hexTopColor(h => `rgba(90,255,160,${Math.min(.8, .15 + h.sumWeight * .12)})`).hexSideColor(h => `rgba(90,255,160,${Math.min(.4, .05 + h.sumWeight * .05)})`)
-    .polygonGeoJsonGeometry(x => x.f.geometry).polygonCapColor(x => hexA(x.col, .1)).polygonSideColor(x => hexA(x.col, .05)).polygonStrokeColor(x => x.col).polygonAltitude(.006).polygonsTransitionDuration(0)
+    .polygonGeoJsonGeometry(x => x.geom || (x.geom = d3geom(x.f.geometry))).polygonCapColor(x => hexA(x.col, .1)).polygonSideColor(x => hexA(x.col, .05)).polygonStrokeColor(x => x.col).polygonAltitude(.006).polygonsTransitionDuration(0)
     .polygonLabel(() => "").onPolygonClick(x => showInfo(popupOf(x.l)))
     .pathPoints("c").pathPointLat(p => p[0]).pathPointLng(p => p[1]).pathColor(x => x.col).pathStroke(1.5).pathDashLength(.4).pathDashGap(.15).pathDashAnimateTime(6000).pathTransitionDuration(0)
     .particlesList("list").particleLat("lat").particleLng("lng").particleAltitude("alt").particlesColor("col").particlesSize("size").particlesSizeAttenuation(false).particleLabel(() => "")
