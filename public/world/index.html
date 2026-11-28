@@ -575,7 +575,7 @@ function extract(d) {
     if (l instanceof L.CircleMarker || l instanceof L.Marker) {
       if (d.id === "sat") return; // satellittene tegnes for seg (globeSats)
       const ll = l.getLatLng(), r = l.getRadius ? l.getRadius() : 4;
-      (PARTICLE.has(d.id) ? g.parts : g.pts).push({ lat: ll.lat, lng: ll.lng, col: lyrColor(l), r, l, alt: d.id === "quake" ? Math.min(.12, r * .005) : d.id === "fly" ? .02 : .004 });
+      (PARTICLE.has(d.id) ? g.parts : g.pts).push({ lat: ll.lat, lng: ll.lng, col: lyrColor(l), r, l, alt: d.id === "quake" ? Math.min(.08, r * .003) : d.id === "fly" ? .015 : .003 });
     }
   });
   return g;
@@ -621,11 +621,11 @@ function makeGlobe() {
     .width(innerWidth).height(innerHeight)
     .globeImageUrl(TEX + "earth-night.jpg").bumpImageUrl(TEX + "earth-topology.png").backgroundImageUrl(TEX + "night-sky.png")
     .atmosphereColor("#5fe3cc").atmosphereAltitude(.17)
-    .pointLat("lat").pointLng("lng").pointColor("col").pointAltitude("alt").pointRadius(p => Math.max(.12, p.r * .09)).pointResolution(8).pointsTransitionDuration(0)
+    .pointLat("lat").pointLng("lng").pointColor("col").pointAltitude("alt").pointRadius(p => Math.max(.06, p.r * .035)).pointResolution(8).pointsTransitionDuration(0)
     .pointLabel(() => "").onPointClick(p => showInfo(popupOf(p.l)))
     .hexBinPointLat("lat").hexBinPointLng("lng").hexBinPointWeight("w").hexBinResolution(3).hexBinMerge(true).hexTransitionDuration(0)
     .hexAltitude(h => Math.min(.03, h.sumWeight * .004)).hexTopColor(h => `rgba(90,255,160,${Math.min(.8, .15 + h.sumWeight * .12)})`).hexSideColor(h => `rgba(90,255,160,${Math.min(.4, .05 + h.sumWeight * .05)})`)
-    .polygonGeoJsonGeometry(x => x.f.geometry).polygonCapColor(x => hexA(x.col, .28)).polygonSideColor(x => hexA(x.col, .12)).polygonStrokeColor(x => x.col).polygonAltitude(.006).polygonsTransitionDuration(0)
+    .polygonGeoJsonGeometry(x => x.f.geometry).polygonCapColor(x => hexA(x.col, .1)).polygonSideColor(x => hexA(x.col, .05)).polygonStrokeColor(x => x.col).polygonAltitude(.006).polygonsTransitionDuration(0)
     .polygonLabel(() => "").onPolygonClick(x => showInfo(popupOf(x.l)))
     .pathPoints("c").pathPointLat(p => p[0]).pathPointLng(p => p[1]).pathColor(x => x.col).pathStroke(1.5).pathDashLength(.4).pathDashGap(.15).pathDashAnimateTime(6000).pathTransitionDuration(0)
     .particlesList("list").particleLat("lat").particleLng("lng").particleAltitude("alt").particlesColor("col").particlesSize("size").particlesSizeAttenuation(false).particleLabel(() => "")
